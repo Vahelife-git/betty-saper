@@ -23,7 +23,7 @@ body{padding:16px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));d
 .hdr svg{width:clamp(84px,18vw,150px);height:auto;filter:drop-shadow(0 0 12px var(--teal))}
 .hdr h1{margin:0;font-size:clamp(28px,6vw,56px);line-height:1.05;font-weight:900;letter-spacing:.01em;color:var(--ink);text-shadow:3px 3px 0 var(--collar),6px 6px 0 rgba(0,0,0,.35)}
 .hdr h1 small{display:block;margin-top:6px;font-size:.6em;font-weight:700;color:var(--teal);text-shadow:none;letter-spacing:.04em}
-.paws{font-size:16px;letter-spacing:10px;opacity:.45;margin-top:-6px;user-select:none}
+.paws{font-size:16px;opacity:.6;margin-top:-6px;user-select:none}
 
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:#1b1b1b;padding:10px 14px;border-radius:12px}
 .bar label{display:flex;flex-direction:column;font-size:12px;gap:2px;align-items:center}
@@ -108,6 +108,9 @@ body.touch #tools .sep{display:block}
 	option{padding:6px 10px;color:var(--ink)}
 	option:hover, option:checked{background:var(--collar);color:#fff}
 }
+/* Красная лапка рисуется сама, а не берётся из эмодзи: на iPhone эмодзи 🐾 серая */
+.paw{display:inline-block;width:1em;height:1em;vertical-align:-.12em;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='%23ff4d4d'%3E%3Cellipse cx='19' cy='44' rx='10' ry='13' transform='rotate(-25 19 44)'/%3E%3Cellipse cx='38' cy='24' rx='10' ry='14' transform='rotate(-8 38 24)'/%3E%3Cellipse cx='62' cy='24' rx='10' ry='14' transform='rotate(8 62 24)'/%3E%3Cellipse cx='81' cy='44' rx='10' ry='13' transform='rotate(25 81 44)'/%3E%3Cpath d='M50 46C38 46 24 62 22 76C20 90 34 94 50 88C66 94 80 90 78 76C76 62 62 46 50 46Z'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
+.paws .paw{margin:0 9px}
 </style>
 </head>
 <body>
@@ -116,7 +119,7 @@ body.touch #tools .sep{display:block}
   <svg class="b live" viewBox="0 0 120 120" aria-hidden="true"></svg>
   <h1>Бэтти Питухунд<small>ищет бомбочки 💣</small></h1>
 </header>
-<div class="paws" aria-hidden="true">🐾 🐾 🐾 🐾 🐾</div>
+<div class="paws" aria-hidden="true"><i class="paw"></i><i class="paw"></i><i class="paw"></i><i class="paw"></i><i class="paw"></i></div>
 
 <div class="bar">
   <label>Поле
@@ -143,7 +146,7 @@ body.touch #tools .sep{display:block}
 <div id="tools" role="toolbar" aria-label="Инструменты">
   <div class="grp tgrp">
     <button data-tool="open" aria-pressed="true">⛏<span>Копать</span></button>
-    <button data-tool="flag" aria-pressed="false">🐾<span>Лапка</span></button>
+    <button data-tool="flag" aria-pressed="false"><i class="paw"></i><span>Лапка</span></button>
     <button data-tool="q" aria-pressed="false">🦴<span>Косточка</span></button>
   </div>
   <div class="sep"></div>
@@ -310,7 +313,7 @@ function paint(i) {
     e.textContent = adj[i] || "";
   } else {
     e.className = "c" + (flg[i] ? " f" : bone[i] ? " q" : "");
-    e.textContent = flg[i] ? "🐾" : bone[i] ? "🦴" : "";
+    if (flg[i]) e.innerHTML = '<i class="paw"></i>'; else e.textContent = bone[i] ? "🦴" : "";
   }
 }
 
