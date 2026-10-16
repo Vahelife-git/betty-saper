@@ -13,16 +13,16 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" id="favicon" href="data:,">
 <style>
-:root{--open:#000;--ink:#f6efe0;--pop:#ff7a59;--teal:#3fa3a6;--collar:#b0262f;--cell:#1b1b1b}
+:root{--open:#000;--ink:#f6efe0;--pop:#ff7a59;--teal:#ff4d4d;--collar:#b0262f;--cell:#1b1b1b}
 *{box-sizing:border-box}
 html,body{margin:0;background:#000;color:var(--ink);font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif;-webkit-tap-highlight-color:transparent}
 body{padding:16px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:14px}
 
 /* Шапка с Бэтти */
 .hdr{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:18px 10px 6px}
-.hdr svg{width:clamp(84px,18vw,150px);height:auto;filter:drop-shadow(0 0 12px rgba(63,163,166,.6))}
+.hdr svg{width:clamp(84px,18vw,150px);height:auto;filter:drop-shadow(0 0 12px var(--teal))}
 .hdr h1{margin:0;font-size:clamp(28px,6vw,56px);line-height:1.05;font-weight:900;letter-spacing:.01em;color:var(--ink);text-shadow:3px 3px 0 var(--collar),6px 6px 0 rgba(0,0,0,.35)}
-.hdr h1 small{display:block;margin-top:6px;font-size:.42em;font-weight:700;color:var(--teal);text-shadow:none;letter-spacing:.04em}
+.hdr h1 small{display:block;margin-top:6px;font-size:.6em;font-weight:700;color:var(--teal);text-shadow:none;letter-spacing:.04em}
 .paws{font-size:16px;letter-spacing:10px;opacity:.45;margin-top:-6px;user-select:none}
 
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:#1b1b1b;padding:10px 14px;border-radius:12px}
