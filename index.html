@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Бэтти Питухунд ищет бомбочки</title>
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Бэтти">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" id="favicon" href="data:,">
+<style>
+:root{--open:#000;--ink:#f6efe0;--pop:#ff7a59;--teal:#3fa3a6;--collar:#b0262f;--cell:#1b1b1b}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000;color:var(--ink);font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+body{padding:16px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:14px}
+
+/* Шапка с Бэтти */
+.hdr{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:18px 10px 6px}
+.hdr svg{width:clamp(84px,18vw,150px);height:auto;filter:drop-shadow(0 0 12px rgba(63,163,166,.6))}
+.hdr h1{margin:0;font-size:clamp(28px,6vw,56px);line-height:1.05;font-weight:900;letter-spacing:.01em;color:var(--ink);text-shadow:3px 3px 0 var(--collar),6px 6px 0 rgba(0,0,0,.35)}
+.hdr h1 small{display:block;margin-top:6px;font-size:.42em;font-weight:700;color:var(--teal);text-shadow:none;letter-spacing:.04em}
+.paws{font-size:16px;letter-spacing:10px;opacity:.45;margin-top:-6px;user-select:none}
+
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:#1b1b1b;padding:10px 14px;border-radius:12px}
+.bar label{display:flex;flex-direction:column;font-size:12px;gap:2px;align-items:center}
+select,input,button{font:32px consolas,monospace;color:var(--ink);background:#1b1b1b;border:1px solid #1b1b1b;border-radius:8px;padding:6px 10px}
+input[type=number]{width:96px;text-align:center}
+button{cursor:pointer}button:hover{border-color:var(--ink)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--pop);outline-offset:2px}
+#custom{display:none;gap:10px;align-items:flex-end;flex-wrap:wrap;justify-content:center}
+#err{color:#ff9a9a;font-size:13px;min-height:16px;text-align:center}
+
+/* Табло: счётчик, морда, таймер */
+.panel{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;background:#1b1b1b;padding:8px 14px;border-radius:12px;width:min(100%,420px)}
+.lcd{font:700 28px/1 "Courier New",monospace;background:#000;color:#ff4d4d;padding:6px 10px;border-radius:6px;min-width:76px;text-align:center}
+#face{padding:2px 6px;line-height:0;background:#1b1b1b}
+#face svg{width:76px;height:76px}
+@media (prefers-reduced-motion:no-preference){#face:active svg{transform:scale(.92)}}
+
+/* Поле */
+.wrap{max-width:100%;overflow-x:auto;padding-bottom:4px}
+/* Ноутбук: широкое поле прокручивает всю страницу, полоса прокрутки всегда внизу окна */
+body:not(.touch) .wrap{align-self:stretch;max-width:none;overflow:visible}
+body:not(.touch) #board{margin:0 auto}
+/* Ноутбук: шапка, табло и сообщение стоят по центру окна и не уезжают при прокрутке вбок */
+.top{display:flex;flex-direction:column;align-items:center;gap:14px}
+body:not(.touch){width:max-content;min-width:100%}
+body:not(.touch) .pin{align-self:flex-start;position:sticky;left:16px;width:calc(var(--vw,100vw) - 32px)}
+body:not(.touch) .panel{align-self:flex-start;width:min(calc(var(--vw,100vw) - 32px),420px);left:max(16px,calc((var(--vw,100vw) - 420px) / 2));margin-left:max(0px,calc((var(--vw,100vw) - 420px) / 2 - 16px))}
+#board{--s:64px;display:grid;gap:2px;padding:8px;background:#000;border-radius:10px;width:max-content;margin:0 auto;grid-template-columns:repeat(var(--c),var(--s));grid-template-rows:repeat(var(--r),var(--s));user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-x pan-y}
+.c{width:var(--s);height:var(--s);position:relative;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:calc(var(--s)*.62);line-height:1;background:var(--cell);box-shadow:inset 1px 1px 0 #929292;cursor:pointer}
+.c:not(.o):not(.f):not(.q)::after{content:attr(data-n);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font:600 calc(var(--s)*.38)/1 sans-serif;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
+.c.o{background:var(--open);box-shadow:inset 1px 1px 0 #555;cursor:default}
+.c.boom{background:#ff5a4d}
+.n1{color:#4aa3ff}.n2{color:#4cc35c}.n3{color:#ff5a5a}.n4{color:#b58cff}.n5{color:#ffa94d}.n6{color:#3fd0d0}.n7{color:#e6e6e6}.n8{color:#9a9a9a}
+.c.f,.c.q,.c.o.m{font-size:calc(var(--s)*.55)}
+#msg{min-height:22px;font-weight:700;text-align:center}
+
+/* Окно итога */
+dialog{border:0;border-radius:16px;padding:22px 30px;background:#1b1b1b;color:var(--ink);font-size:22px;text-align:center;box-shadow:0 0 12px var(--teal);max-width:min(90vw,420px)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog[open]{animation:pop .18s ease-out}
+dialog svg{width:110px;height:110px;display:block;margin:0 auto 6px}
+#dlgText{white-space:pre-line;margin:0}
+dialog form{margin:16px 0 0}
+@keyframes pop{from{transform:scale(.9);opacity:0}}
+
+/* Нижняя панель: инструменты (только касание) и масштаб (везде) */
+#tools{display:flex;position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:6;gap:8px;padding:8px;border-radius:16px;background:rgba(27,27,27,.78);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);box-shadow:0 2px 12px rgba(0,0,0,.5);max-width:calc(100vw - 12px)}
+#tools .grp{display:flex;gap:8px}
+#tools .tgrp{display:none}
+body.touch #tools .tgrp{display:flex}
+#tools .sep{width:1px;background:#444;margin:4px 2px;display:none}
+body.touch #tools .sep{display:block}
+#tools button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:72px;min-height:62px;padding:6px 8px;font:28px/1 sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#tools button span{font:600 12px/1 "Trebuchet MS","Segoe UI",Arial,sans-serif}
+#tools button[aria-pressed="true"]{border-color:var(--teal);background:#2c2c2c;box-shadow:0 0 6px var(--teal)}
+#tools .zm{min-width:56px}
+
+/* Морда Бэтти: видны только детали текущего выражения */
+.b [data-s]{display:none}
+.b:not(.press):not(.lose):not(.win) [data-s~=normal],.b.press [data-s~=press],.b.lose [data-s~=lose],.b.win [data-s~=win]{display:inline}
+
+@media (hover:none) and (pointer:coarse){
+	.hdr{margin:8px 6px 0;gap:10px}
+	.hdr svg{width:clamp(64px,16vw,110px)}
+	.hdr h1{font-size:clamp(22px,min(6vw,5.5vh),44px)}
+}
+@media (max-width:600px){
+	select,input,button{font-size:20px}
+	#face svg{width:56px;height:56px}
+	.lcd{font-size:22px;min-width:60px}
+	.panel{gap:8px;padding:6px 10px}
+	input[type=number]{width:72px}
+	#tools{gap:6px;padding:6px}
+	#tools .grp{gap:6px}
+	#tools button{min-width:60px;min-height:56px;font-size:24px;padding:4px 6px}
+	#tools .zm{min-width:48px}
+}
+
+@supports (appearance: base-select){
+	select, select::picker(select){appearance:base-select}
+	select::picker(select){background:#1b1b1b;border:1px solid #1b1b1b;border-radius:8px;padding:4px}
+	option{padding:6px 10px;color:var(--ink)}
+	option:hover, option:checked{background:var(--collar);color:#fff}
+}
+</style>
+</head>
+<body>
+<div class="top pin">
+<header class="hdr">
+  <svg class="b live" viewBox="0 0 120 120" aria-hidden="true"></svg>
+  <h1>Бэтти Питухунд<small>ищет бомбочки 💣</small></h1>
+</header>
+<div class="paws" aria-hidden="true">🐾 🐾 🐾 🐾 🐾</div>
+
+<div class="bar">
+  <label>Поле
+    <select id="diff"></select>
+  </label>
+  <div id="custom">
+    <label>Строки<input type="number" id="cr" min="5" max="50" value="10"></label>
+    <label>Столбцы<input type="number" id="cc" min="5" max="50" value="10"></label>
+    <label>Мины<input type="number" id="cm" min="1" value="15"></label>
+    <button id="go">Запуск</button>
+  </div>
+</div>
+<div id="err"></div>
+</div>
+
+<div class="panel">
+  <div class="lcd" id="mc" title="Осталось бомбочек">000</div>
+  <button id="face" title="Новая игра"><svg class="b live" viewBox="0 0 120 120" aria-hidden="true"></svg></button>
+  <div class="lcd" id="tm" title="Время">000</div>
+</div>
+<div id="msg" class="pin"></div>
+<div class="wrap"><div id="board"></div></div>
+
+<div id="tools" role="toolbar" aria-label="Инструменты">
+  <div class="grp tgrp">
+    <button data-tool="open" aria-pressed="true">⛏<span>Копать</span></button>
+    <button data-tool="flag" aria-pressed="false">🐾<span>Лапка</span></button>
+    <button data-tool="q" aria-pressed="false">🦴<span>Косточка</span></button>
+  </div>
+  <div class="sep"></div>
+  <div class="grp">
+    <button class="zm" id="zOut" title="Клетки мельче (клавиша −)">－<span>Мельче</span></button>
+    <button class="zm" id="zIn" title="Клетки крупнее (клавиша +)">＋<span>Крупнее</span></button>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <svg class="b" id="dlgFace" viewBox="0 0 120 120" aria-hidden="true"></svg>
+  <p id="dlgText"></p>
+  <form method="dialog"><button>Ок</button></form>
+</dialog>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const board = $("board");
+
+// Мультяшная Бэтти: data-s перечисляет выражения, в которых деталь видна
+const BETTY = '<g data-s="normal press win"><path d="M33 46 Q24 12 42 2 Q53 20 51 36 Z" fill="#6f5a49"/><path d="M37 42 Q31 17 42 8 Q48 24 47 36 Z" fill="#e9c3ad"/></g>'
+  + '<path data-s="lose" d="M40 33 Q19 29 11 55 Q20 62 29 52 Q35 43 41 40 Z" fill="#6f5a49"/>'
+  + '<path d="M80 33 Q101 27 110 53 Q101 61 92 51 Q86 43 80 40 Z" fill="#d2b48e"/><path d="M86 36 Q100 33 106 51" fill="none" stroke="#a88a68" stroke-width="2" stroke-linecap="round"/>'
+  + '<ellipse cx="60" cy="63" rx="34" ry="35" fill="#e8d1b0"/>'
+  + '<path d="M28 54 Q28 30 53 28 L55 41 Q54 62 41 69 Q28 66 28 54 Z" fill="#86705f"/><path d="M92 54 Q92 30 67 28 L65 41 Q66 62 79 69 Q92 66 92 54 Z" fill="#86705f"/>'
+  + '<path d="M55 27 Q60 25 65 27 L66 48 Q76 60 76 76 Q60 94 44 76 Q44 60 54 48 Z" fill="#faf5ec"/><ellipse cx="60" cy="81" rx="19" ry="13" fill="#faf5ec"/>'
+  + '<g data-s="normal press win" stroke="#3d2f26" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M38 42 Q44 38 51 41"/><path d="M69 41 Q76 38 82 42"/></g>'
+  + '<g data-s="lose" stroke="#3d2f26" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M38 45 Q45 42 51 38"/><path d="M69 38 Q75 42 82 45"/></g>'
+  + '<g data-s="normal lose"><circle cx="45" cy="54" r="8" fill="#1a1310"/><circle cx="75" cy="54" r="8" fill="#1a1310"/><circle cx="47.6" cy="51" r="2.7" fill="#fff"/><circle cx="77.6" cy="51" r="2.7" fill="#fff"/></g>'
+  + '<g data-s="press"><circle cx="45" cy="54" r="9.5" fill="#fff"/><circle cx="75" cy="54" r="9.5" fill="#fff"/><circle cx="45" cy="55" r="6.5" fill="#1a1310"/><circle cx="75" cy="55" r="6.5" fill="#1a1310"/><circle cx="47" cy="53" r="2.2" fill="#fff"/><circle cx="77" cy="53" r="2.2" fill="#fff"/></g>'
+  + '<g data-s="win" stroke="#1a1310" stroke-width="3.2" stroke-linecap="round" fill="none"><path d="M38 57 Q45 48 52 57"/><path d="M68 57 Q75 48 82 57"/></g>'
+  + '<path data-s="lose" d="M80 62 Q76 69 80 72 Q84 69 80 62 Z" fill="#7fd3ff"/>'
+  + '<g data-s="win" fill="#ff8f8f" opacity=".5"><ellipse cx="36" cy="67" rx="5" ry="3"/><ellipse cx="84" cy="67" rx="5" ry="3"/></g>'
+  + '<ellipse cx="60" cy="71" rx="10" ry="7.2" fill="#161616"/><ellipse cx="56.5" cy="68.5" rx="3" ry="1.7" fill="#5c5c5c"/>'
+  + '<path d="M33 94 Q60 108 87 94 L87 101 Q60 115 33 101 Z" fill="#b0262f"/><circle cx="60" cy="110" r="4" fill="#e3c35a"/>'
+  + '<g data-s="normal win"><path d="M49 80 Q54.5 85 60 81 Q65.5 85 71 80" fill="none" stroke="#3a2a22" stroke-width="2" stroke-linecap="round"/><path d="M54 82 Q53 104 60 106 Q67 104 66 82 Q60 85 54 82 Z" fill="#c9525f"/><path d="M60 85 L60 100" stroke="#a63d4a" stroke-width="1.6" stroke-linecap="round"/></g>'
+  + '<ellipse data-s="press" cx="60" cy="84" rx="3.8" ry="4.4" fill="#3a2a22"/>'
+  + '<path data-s="lose" d="M51 88 Q60 81 69 88" fill="none" stroke="#3a2a22" stroke-width="2.2" stroke-linecap="round"/>';
+document.querySelectorAll("svg.b").forEach(s => s.innerHTML = BETTY);
+$("favicon").href = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><style>[data-s]{display:none}[data-s~=normal]{display:inline}</style>' + BETTY + '</svg>');
+function setFace(st) { document.querySelectorAll("svg.b.live").forEach(s => s.setAttribute("class", "b live" + (st === "normal" ? "" : " " + st))); }
+
+// Размеры поля: строки, столбцы, мины
+const PRESETS = [[8,8,10],[9,9,10],[12,12,22],[16,16,40],[16,30,99],[20,30,120],[24,30,150],[30,30,180],[40,40,320],[50,50,500]];
+const DEF = 4, LIM = 50;
+const MAX = 128, MINS = 20, MINT = 24, GAP = 2, BPAD = 16 + 4, STEP = 1.15;
+
+const WIN_TXT = ["Бэтти молодец!", "Бэтти виляет хвостом!", "Гав! Все бомбочки найдены!", "Бэтти заслужила косточку!", "Нюх не подвёл!", "Лучшая сапёрка района!"];
+const LOSE_TXT = ["Бэтти огорчена…", "Бэтти прижала уши…", "Ой-ой, Бэтти поскуливает…", "Не тот куст понюхала…", "Бэтти ушла под диван…", "Бэтти просит ещё попытку!"];
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, lpAt = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0;
+
+// Сохранение настроек: на file:// и в приватном режиме хранилище может быть недоступно
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("betty." + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("betty." + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+function say(t, st) {
+  $("dlgText").textContent = t;
+  $("dlgFace").setAttribute("class", "b " + st);
+  const d = $("dlg");
+  if (typeof d.showModal === "function") { if (!d.open) d.showModal(); } else alert(t);   // Старые браузеры без <dialog>
+}
+
+function params() {
+  const d = $("diff").value;
+  if (d !== "c") return PRESETS[+d] || PRESETS[DEF];
+  const r = +$("cr").value, c = +$("cc").value, m = +$("cm").value;
+  if (![r, c].every(v => Number.isInteger(v) && v >= 5 && v <= LIM)) return "Строки и столбцы: целые числа от 5 до " + LIM;
+  const mx = Math.floor(r * c * .75);
+  if (!Number.isInteger(m) || m < 1 || m > mx) return "Мин: от 1 до 75% клеток (" + mx + ")";
+  return [r, c, m];
+}
+
+function init() {
+  const p = params();
+  if (typeof p === "string") { $("err").textContent = p; return; }
+  $("err").textContent = "";
+  [R, C, M] = p;
+  store.set("size", $("diff").value);
+  if ($("diff").value === "c") store.set("custom", p);
+  clearInterval(timer); secs = 0; state = "ready"; opened = 0; flags = 0;
+  mine = new Uint8Array(R * C); adj = new Uint8Array(R * C); opn = new Uint8Array(R * C); flg = new Uint8Array(R * C); bone = new Uint8Array(R * C);
+  board.style.setProperty("--r", R); board.style.setProperty("--c", C);
+  let h = "";
+  for (let i = 0; i < R * C; i++) h += '<div class="c" data-i="' + i + '" data-n="' + (i + 1) + '"></div>';
+  board.innerHTML = h;
+  el = board.children;
+  setFace("normal"); $("msg").textContent = "";
+  zoom = (store.get("zoom", {}))[R + "x" + C] || 1;
+  lcd(); fit(true);
+}
+
+function lcd() {
+  const v = Math.max(-99, M - flags);
+  $("mc").textContent = v < 0 ? "-" + String(-v).padStart(2, "0") : String(v).padStart(3, "0");
+  $("tm").textContent = String(Math.min(secs, 999)).padStart(3, "0");
+}
+
+// Основной ввод — палец (телефон/планшет)
+const touchUI = matchMedia("(hover: none) and (pointer: coarse)");
+const minS = () => touchUI.matches ? MINT : MINS;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function baseSize() {
+  const availW = document.documentElement.clientWidth - 32 - BPAD - (C - 1) * GAP;
+  let s = Math.floor(availW / C);              // Ноутбук: по ширине окна, страница при необходимости прокручивается
+  if (touchUI.matches) {                       // Телефон: стараемся уместить поле и по высоте
+    const top = board.parentElement.getBoundingClientRect().top + scrollY;
+    s = Math.min(s, Math.floor((innerHeight - top - BPAD - (R - 1) * GAP - 96) / R));
+  }
+  return clamp(s, minS(), MAX);
+}
+function apply() { board.style.setProperty("--s", clamp(Math.round(baseS * zoom), minS(), MAX) + "px"); }
+function fit(force) {
+  if (!R) return;
+  const w = document.documentElement.clientWidth;
+  if (!force && touchUI.matches && w === lastW) return;   // На телефоне смена только высоты (адресная строка) не трогает размер клеток
+  lastW = w; baseS = baseSize(); apply();
+}
+
+function setZoom(f) {
+  const wrap = board.parentElement, rb = board.getBoundingClientRect();
+  const cx = clamp((innerWidth / 2 - rb.left) / (rb.width || 1), 0, 1);   // Запоминаем точку поля в центре экрана, чтобы не терять место
+  const cy = clamp((innerHeight / 2 - rb.top) / (rb.height || 1), 0, 1);
+  zoom = clamp(zoom * f, minS() / baseS, MAX / baseS);
+  const all = store.get("zoom", {}); all[R + "x" + C] = +zoom.toFixed(4); store.set("zoom", all);
+  apply();
+  const nr = board.getBoundingClientRect();
+  const dx = nr.left + cx * nr.width - innerWidth / 2, dy = nr.top + cy * nr.height - innerHeight / 2;
+  if (document.body.classList.contains("touch")) { wrap.scrollLeft += dx; scrollBy(0, dy); }   // Телефон: поле листается пальцем внутри своей области
+  else scrollBy(dx, dy);                                                                       // Ноутбук: прокручивается страница
+}
+
+function nb(i, f) {
+  const r = (i / C) | 0, c = i % C;
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && rr < R && cc >= 0 && cc < C) f(rr * C + cc);
+  }
+}
+
+function place(safe) {
+  const ex = new Set([safe]);                  // Первый клик: безопасна клетка и её соседи, если места хватает
+  if (M <= R * C - 9) nb(safe, j => ex.add(j));
+  const pool = [];
+  for (let i = 0; i < R * C; i++) if (!ex.has(i)) pool.push(i);
+  for (let k = 0; k < M; k++) {
+    const j = k + Math.floor(Math.random() * (pool.length - k));
+    [pool[k], pool[j]] = [pool[j], pool[k]];
+    mine[pool[k]] = 1;
+  }
+  for (let i = 0; i < R * C; i++) if (!mine[i]) { let n = 0; nb(i, j => n += mine[j]); adj[i] = n; }
+}
+
+function paint(i) {
+  const e = el[i];
+  if (opn[i]) {
+    e.className = "c o" + (adj[i] ? " n" + adj[i] : "");
+    e.textContent = adj[i] || "";
+  } else {
+    e.className = "c" + (flg[i] ? " f" : bone[i] ? " q" : "");
+    e.textContent = flg[i] ? "🐾" : bone[i] ? "🦴" : "";
+  }
+}
+
+function start() {
+  state = "play";
+  t0 = Date.now();
+  timer = setInterval(() => { const v = ((Date.now() - t0) / 1000) | 0; if (v !== secs) { secs = v; lcd(); } }, 250);
+}
+
+function reveal(i) {
+  if (state === "won" || state === "lost" || opn[i] || flg[i]) return;
+  if (state === "ready") { place(i); start(); }
+  if (mine[i]) return lose(i);
+  const st = [i];
+  while (st.length) {
+    const k = st.pop();
+    if (opn[k] || flg[k]) continue;
+    opn[k] = 1; bone[k] = 0; opened++; paint(k);
+    if (!adj[k]) nb(k, j => { if (!opn[j] && !flg[j]) st.push(j); });
+  }
+  if (opened === R * C - M) win();
+}
+
+function chord(i) {
+  if (!opn[i] || !adj[i]) return;
+  let f = 0; nb(i, j => f += flg[j]);
+  if (f !== adj[i]) return;
+  nb(i, j => { if (state === "play") reveal(j); });
+}
+
+function markOf(i) { return flg[i] ? 1 : bone[i] ? 2 : 0; }   // 0 пусто, 1 лапка (флаг), 2 косточка (знак)
+function canMark(i) {
+  if (state === "won" || state === "lost" || opn[i]) return false;
+  const now = performance.now();               // Защита от дребезга кнопки: два вызова подряд по одной клетке
+  if (i === lastI && now - lastT < 120) return false;
+  lastI = i; lastT = now;
+  return true;
+}
+function setMark(i, m) {
+  flags -= flg[i]; flg[i] = m === 1 ? 1 : 0; bone[i] = m === 2 ? 1 : 0; flags += flg[i];
+  paint(i); lcd();
+}
+function toggle(i) { if (canMark(i)) setMark(i, (markOf(i) + 1) % 3); }          // ПКМ / долгий тап: пусто → 🐾 → 🦴 → пусто
+function tapMark(i, m) { if (canMark(i)) setMark(i, markOf(i) === m ? 0 : m); }   // Панель: нажать ту же метку — снять её
+
+function end() { clearInterval(timer); secs = Math.min(999, ((Date.now() - t0) / 1000) | 0); lcd(); }
+
+// Звуки синтезируются на лету, без файлов
+let ac = null;
+function audio() {
+  try {
+    if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (A) ac = new A(); }
+    if (ac && ac.state === "suspended") ac.resume();
+  } catch (e) { ac = null; }
+  return ac;
+}
+function chain(nodes) { for (let k = 0; k < nodes.length - 1; k++) nodes[k].connect(nodes[k + 1]); }
+function bark(a, t) {
+  const o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(560, t); o.frequency.exponentialRampToValueAtTime(230, t + .15);
+  f.type = "bandpass"; f.frequency.value = 950; f.Q.value = 1.3;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.7, t + .015); g.gain.exponentialRampToValueAtTime(.0001, t + .17);
+  chain([o, f, g, a.destination]); o.start(t); o.stop(t + .2);
+  const len = Math.floor(a.sampleRate * .14), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+  for (let k = 0; k < len; k++) d[k] = Math.random() * 2 - 1;
+  const n = a.createBufferSource(), nf = a.createBiquadFilter(), ng = a.createGain();
+  n.buffer = buf; nf.type = "bandpass"; nf.frequency.value = 1600; nf.Q.value = .9;
+  ng.gain.setValueAtTime(.22, t); ng.gain.exponentialRampToValueAtTime(.0001, t + .12);
+  chain([n, nf, ng, a.destination]); n.start(t);
+}
+function soundWin() { const a = audio(); if (!a) return; const t = a.currentTime + .03; bark(a, t); bark(a, t + .28); }   // «Гав-гав»
+function soundLose() {                                                                                            // Скуление
+  const a = audio(); if (!a) return;
+  const t = a.currentTime + .03, o = a.createOscillator(), g = a.createGain(), l = a.createOscillator(), lg = a.createGain();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(980, t); o.frequency.exponentialRampToValueAtTime(820, t + .3); o.frequency.exponentialRampToValueAtTime(470, t + .85);
+  l.frequency.value = 6.5; lg.gain.value = 28; chain([l, lg, o.frequency]);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .08); g.gain.setValueAtTime(.35, t + .55); g.gain.exponentialRampToValueAtTime(.0001, t + .9);
+  chain([o, g, a.destination]); o.start(t); l.start(t); o.stop(t + .95); l.stop(t + .95);
+}
+
+function lose(hit) {
+  state = "lost"; end();
+  for (let i = 0; i < R * C; i++) {
+    if (mine[i] && !flg[i]) { el[i].className = "c o m"; el[i].textContent = "💣"; }
+    else if (!mine[i] && flg[i]) { el[i].className = "c o m"; el[i].textContent = "❌"; }
+  }
+  el[hit].classList.add("boom");
+  const t = pick(LOSE_TXT);
+  setFace("lose"); $("msg").textContent = "💥 Бомбочка взорвалась. " + t;
+  soundLose(); if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
+  say("💥 Бомбочка взорвалась.\n" + t, "lose");
+}
+
+function win() {
+  state = "won"; end();
+  for (let i = 0; i < R * C; i++) if (mine[i] && !flg[i]) { flg[i] = 1; bone[i] = 0; paint(i); }
+  flags = M; lcd();
+  const t = pick(WIN_TXT);
+  setFace("win"); $("msg").textContent = "🏆 Бомбочки найдены за " + secs + " с. " + t;
+  soundWin();
+  say("🏆 Бомбочки найдены за " + secs + " с.\n" + t, "win");
+}
+
+board.addEventListener("click", e => {
+  const t = e.target.closest(".c"); if (!t) return;
+  if (lp) { lp = false; return; }
+  const i = +t.dataset.i;
+  if (opn[i]) return tool === "open" ? chord(i) : undefined;
+  tool === "flag" ? tapMark(i, 1) : tool === "q" ? tapMark(i, 2) : reveal(i);
+});
+function lpToggle(i) {                         // Единая точка для долгого тапа и contextmenu от touch/pen
+  const n = performance.now();
+  if (n - lpAt < 1000) return;                 // Второе событие того же жеста (таймер + нативный contextmenu)
+  lpAt = n; lp = true; clearTimeout(lpT);
+  toggle(i);
+  if (navigator.vibrate) navigator.vibrate(20);
+}
+board.addEventListener("contextmenu", e => {
+  e.preventDefault();
+  const t = e.target.closest(".c"); if (!t) return;
+  const i = +t.dataset.i;
+  ptype === "mouse" ? toggle(i) : lpToggle(i);
+});
+board.addEventListener("pointerdown", e => {
+  ptype = e.pointerType; lp = false; clearTimeout(lpT); sx = e.clientX; sy = e.clientY;
+  const t = e.target.closest(".c"); if (!t) return;
+  if ((state === "ready" || state === "play") && !opn[+t.dataset.i] && e.button === 0) setFace("press");   // Бэтти настораживается
+  if (ptype === "mouse") return;
+  lpT = setTimeout(() => lpToggle(+t.dataset.i), 450);
+});
+const relax = () => { clearTimeout(lpT); if (state === "ready" || state === "play") setFace("normal"); };
+["pointerup", "pointercancel"].forEach(n => addEventListener(n, relax));
+board.addEventListener("pointerleave", () => clearTimeout(lpT));
+board.addEventListener("pointermove", e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) clearTimeout(lpT); }); // Дрожание пальца не отменяет долгий тап
+board.addEventListener("gesturestart", e => e.preventDefault(), { passive: false });                                  // iOS: щипок двумя пальцами на поле отключён
+addEventListener("pointerdown", audio, { once: true });                                                              // Разблокировка звука первым касанием
+
+$("face").onclick = init;
+$("go").onclick = init;
+$("zIn").onclick = () => setZoom(STEP);
+$("zOut").onclick = () => setZoom(1 / STEP);
+addEventListener("keydown", e => {
+  if (e.target.matches("input,select")) return;
+  if (e.key === "+" || e.key === "=") setZoom(STEP);
+  else if (e.key === "-" || e.key === "_") setZoom(1 / STEP);
+});
+
+// Список полей и восстановление выбора
+$("diff").innerHTML = PRESETS.map((p, k) => '<option value="' + k + '">' + p[0] + "×" + p[1] + " / " + p[2] + "</option>").join("") + '<option value="c">Свой размер</option>';
+{
+  const sv = String(store.get("size", DEF)), cu = store.get("custom", null);
+  $("diff").value = (sv === "c" || PRESETS[+sv]) ? sv : String(DEF);
+  if (Array.isArray(cu) && cu.length === 3) { $("cr").value = cu[0]; $("cc").value = cu[1]; $("cm").value = cu[2]; }
+}
+const syncCustom = () => { $("custom").style.display = $("diff").value === "c" ? "flex" : "none"; };
+$("diff").onchange = () => { syncCustom(); if ($("diff").value !== "c") init(); };
+addEventListener("pageshow", syncCustom);    // Браузер может восстановить выбор формы из кэша страницы
+
+$("dlg").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+function setVW() { document.documentElement.style.setProperty("--vw", document.documentElement.clientWidth + "px"); }   // Ширина окна без полосы прокрутки
+addEventListener("resize", () => { setVW(); fit(false); });
+setVW();
+if (window.ResizeObserver) new ResizeObserver(setVW).observe(document.documentElement);   // Появление вертикальной полосы прокрутки тоже меняет ширину
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll("#tools [data-tool]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tool === t));
+}
+function syncUI() {
+  document.body.classList.toggle("touch", touchUI.matches);
+  if (!touchUI.matches) setTool("open");       // Без панели инструмент всегда «копать»
+  fit(true);
+}
+document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
+if (touchUI.addEventListener) touchUI.addEventListener("change", syncUI); else if (touchUI.addListener) touchUI.addListener(syncUI);   // Старый Safari
+document.body.classList.toggle("touch", touchUI.matches);
+syncCustom();
+init();
+
+// Офлайн-режим для версии на GitHub Pages; при открытии файлом не используется
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
