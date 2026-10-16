@@ -199,7 +199,7 @@ const WIN_TXT = ["Бэтти молодец!", "Бэтти виляет хвос
 const LOSE_TXT = ["Бэтти огорчена…", "Бэтти прижала уши…", "Ой-ой, Бэтти поскуливает…", "Не тот куст понюхала…", "Бэтти ушла под диван…", "Бэтти просит ещё попытку!"];
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, lpAt = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0;
+let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0;
 
 // Сохранение настроек: на file:// и в приватном режиме хранилище может быть недоступно
 const store = {
@@ -427,9 +427,8 @@ board.addEventListener("click", e => {
   tool === "flag" ? tapMark(i, 1) : tool === "q" ? tapMark(i, 2) : reveal(i);
 });
 function lpToggle(i) {                         // Единая точка для долгого тапа и contextmenu от touch/pen
-  const n = performance.now();
-  if (n - lpAt < 1000) return;                 // Второе событие того же жеста (таймер + нативный contextmenu)
-  lpAt = n; lp = true; clearTimeout(lpT);
+  if (lp) return;                              // Метка в этом касании уже поставлена (таймер + нативный contextmenu)
+  lp = true; clearTimeout(lpT);
   toggle(i);
   if (navigator.vibrate) navigator.vibrate(20);
 }
@@ -451,7 +450,11 @@ const relax = () => { clearTimeout(lpT); if (state === "ready" || state === "pla
 board.addEventListener("pointerleave", () => clearTimeout(lpT));
 board.addEventListener("pointermove", e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) clearTimeout(lpT); }); // Дрожание пальца не отменяет долгий тап
 board.addEventListener("gesturestart", e => e.preventDefault(), { passive: false });                                  // iOS: щипок двумя пальцами на поле отключён
-addEventListener("pointerdown", audio, { once: true });                                                              // Разблокировка звука первым касанием
+function unlockAudio() {                       // Разблокировка звука: iOS разрешает её только по завершении касания или клику
+  const a = audio();
+  if (a && a.state === "running") ["pointerup", "touchend", "click", "keydown"].forEach(n => removeEventListener(n, unlockAudio, true));
+}
+["pointerup", "touchend", "click", "keydown"].forEach(n => addEventListener(n, unlockAudio, true));
 
 $("face").onclick = init;
 $("go").onclick = init;
