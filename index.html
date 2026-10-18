@@ -28,15 +28,12 @@ body{padding:16px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));d
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:#1b1b1b;padding:10px 14px;border-radius:12px}
 .bar label{display:flex;flex-direction:column;font-size:12px;gap:2px;align-items:center}
 select,input,button{font:32px consolas,monospace;color:var(--ink);background:#1b1b1b;border:1px solid #1b1b1b;border-radius:8px;padding:6px 10px}
-input[type=number]{width:96px;text-align:center}
 button{cursor:pointer}button:hover{border-color:var(--ink)}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--pop);outline-offset:2px}
-#custom{display:none;gap:10px;align-items:flex-end;flex-wrap:wrap;justify-content:center}
-#err{color:#ff9a9a;font-size:13px;min-height:16px;text-align:center}
 
 /* Табло: счётчик, морда, таймер */
 .panel{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;background:#1b1b1b;padding:8px 14px;border-radius:12px;width:min(100%,420px)}
-.lcd{font:700 28px/1 "Courier New",monospace;background:#000;color:#ff4d4d;padding:6px 10px;border-radius:6px;min-width:76px;text-align:center}
+.lcd{font:700 28px/1 "Courier New",monospace;background:#000;color:#ff4d4d;padding:6px 10px;border-radius:6px;min-width:76px;text-align:center;white-space:nowrap}
 #face{padding:2px 6px;line-height:0;background:#1b1b1b}
 #face svg{width:76px;height:76px}
 @media (prefers-reduced-motion:no-preference){#face:active svg{transform:scale(.92)}}
@@ -85,6 +82,18 @@ body.touch #tools .sep{display:block}
 .b [data-s]{display:none}
 .b:not(.press):not(.lose):not(.win) [data-s~=normal],.b.press [data-s~=press],.b.lose [data-s~=lose],.b.win [data-s~=win]{display:inline}
 
+/* Анимация Бэтти: моргание везде, ухо и язык — только на табло и в окне итога */
+.b .ey,.b .ear,.b .ear2,.b .tng{transform-box:fill-box}
+.b .ey{transform-origin:center}
+.b.blink .ey{animation:blink .18s ease-in-out}
+@keyframes blink{50%{transform:scaleY(.08)}}
+.b.act .ear{transform-origin:50% 100%;animation:ear 4.6s ease-in-out infinite}
+@keyframes ear{0%,84%,100%{transform:rotate(0)}88%{transform:rotate(-13deg)}92%{transform:rotate(4deg)}96%{transform:rotate(-7deg)}}
+.b.act .ear2{transform-origin:0 0;animation:ear2 6.3s ease-in-out infinite}
+@keyframes ear2{0%,78%,100%{transform:rotate(0)}84%{transform:rotate(9deg)}90%{transform:rotate(-3deg)}95%{transform:rotate(4deg)}}
+.b.act .tng{transform-origin:50% 0;animation:tng 1.5s ease-in-out infinite}
+@keyframes tng{0%,100%{transform:rotate(-5deg) scaleY(1)}50%{transform:rotate(5deg) scaleY(1.07)}}
+
 @media (hover:none) and (pointer:coarse){
 	.hdr{margin:8px 6px 0;gap:10px}
 	.hdr svg{width:clamp(64px,16vw,110px)}
@@ -95,7 +104,6 @@ body.touch #tools .sep{display:block}
 	#face svg{width:56px;height:56px}
 	.lcd{font-size:22px;min-width:60px}
 	.panel{gap:8px;padding:6px 10px}
-	input[type=number]{width:72px}
 	#tools{gap:6px;padding:6px}
 	#tools .grp{gap:6px}
 	#tools button{min-width:60px;min-height:56px;font-size:24px;padding:4px 6px}
@@ -107,6 +115,7 @@ body.touch #tools .sep{display:block}
 	#tools .grp{gap:4px}
 	#tools button,#tools .zm{min-width:0;flex:1 1 0;padding:4px 5px}
 	#tools button span{font-size:11px}
+	.lcd{font-size:19px;padding:6px 7px;min-width:52px}   /* Таймер ЧЧ:ММ:СС помещается рядом с мордой */
 }
 
 @supports (appearance: base-select){
@@ -135,20 +144,13 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
   <label>Поле
     <select id="diff"></select>
   </label>
-  <div id="custom">
-    <label>Строки<input type="number" id="cr" min="5" max="50" value="10"></label>
-    <label>Столбцы<input type="number" id="cc" min="5" max="50" value="10"></label>
-    <label>Мины<input type="number" id="cm" min="1" value="15"></label>
-    <button id="go">Запуск</button>
-  </div>
 </div>
-<div id="err"></div>
 </div>
 
 <div class="panel">
   <div class="lcd" id="mc" title="Осталось бомбочек">000</div>
-  <button id="face" title="Новая игра"><svg class="b live" viewBox="0 0 120 120" aria-hidden="true"></svg></button>
-  <div class="lcd" id="tm" title="Время">00000</div>
+  <button id="face" title="Новая игра"><svg class="b live act" viewBox="0 0 120 120" aria-hidden="true"></svg></button>
+  <div class="lcd" id="tm" title="Время">00:00:00</div>
 </div>
 <div id="msg" class="pin"></div>
 <div class="wrap"><div id="board"></div></div>
@@ -167,10 +169,359 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
 </div>
 
 <dialog id="dlg">
-  <svg class="b" id="dlgFace" viewBox="0 0 120 120" aria-hidden="true"></svg>
+  <svg class="b act" id="dlgFace" viewBox="0 0 120 120" aria-hidden="true"></svg>
   <p id="dlgText"></p>
   <form method="dialog"><button>Ок</button></form>
 </dialog>
+
+<script id="gen">
+"use strict";
+// Случайные числа из криптографического генератора: каждая партия своя и не повторяется
+const rnd = (() => {
+  const cr = typeof crypto !== "undefined" && crypto.getRandomValues ? crypto : null, buf = new Uint32Array(64);
+  let p = 64;
+  return n => {
+    if (!cr) return Math.floor(Math.random() * n);
+    const lim = 4294967296 - 4294967296 % n;   // Отсечение, чтобы все значения были равновероятны
+    for (;;) {
+      if (p === 64) { cr.getRandomValues(buf); p = 0; }
+      const v = buf[p++];
+      if (v < lim) return v % n;
+    }
+  };
+})();
+
+// Генератор поля без угадывания. Расстановка проверяется логическим решателем, который видит
+// только то же, что игрок: открытые числа и общий счётчик бомбочек. Если решатель застрял,
+// бомбочки рядом с местом застревания перекладываются, и проверка повторяется. Поле выдаётся,
+// только когда решатель проходит его целиком с первого хода без единой правки.
+// Это функция-генератор: она отдаёт управление (yield), чтобы страница не замирала на больших полях.
+function* genBoard(R, C, M, safe) {
+  const N = R * C, NB = new Int32Array(N * 8), NC = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    const r = (i / C) | 0, c = i % C;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const rr = r + dr, cc = c + dc;
+      if ((dr || dc) && rr >= 0 && rr < R && cc >= 0 && cc < C) NB[i * 8 + NC[i]++] = rr * C + cc;
+    }
+  }
+  const mine = new Uint8Array(N), adj = new Uint8Array(N), zone = new Uint8Array(N);
+  zone[safe] = 1;                              // Первый ход: клетка и её соседи всегда пустые
+  if (M <= N - 9) for (let k = 0; k < NC[safe]; k++) zone[NB[safe * 8 + k]] = 1;
+
+  function setMine(i, v) {
+    if (mine[i] === v) return;
+    mine[i] = v;
+    for (let k = 0, d = v ? 1 : -1; k < NC[i]; k++) adj[NB[i * 8 + k]] += d;
+  }
+  function fill() {
+    mine.fill(0); adj.fill(0);
+    const pool = [];
+    for (let i = 0; i < N; i++) if (!zone[i]) pool.push(i);
+    for (let k = 0; k < M; k++) {
+      const j = k + rnd(pool.length - k), t = pool[j];
+      pool[j] = pool[k]; pool[k] = t;
+      setMine(t, 1);
+    }
+  }
+
+  // Состояние решателя: st 0 — неизвестно, 1 — открыта, 2 — точно бомбочка
+  const st = new Uint8Array(N), inQ = new Uint8Array(N), dirty = new Uint8Array(N);
+  const chg = new Uint32Array(N), seen = new Uint32Array(N), stamp = new Uint32Array(N), cst = new Uint32Array(N), lid = new Int32Array(N);
+  let q = [], dl = [], tick = 0, stp = 0, stp2 = 0, opened = 0, km = 0, pert = 0;
+  const UA = [], UB = [], OA = [], OB = [], CM = [];
+
+  function push(c) {
+    if (!inQ[c]) { inQ[c] = 1; q.push(c); }
+    if (!dirty[c]) { dirty[c] = 1; dl.push(c); }
+  }
+  function touch(i) {                          // Клетка изменилась: её открытые соседи перепроверяются
+    chg[i] = ++tick;
+    for (let k = 0; k < NC[i]; k++) { const n = NB[i * 8 + k]; if (st[n] === 1) { chg[n] = tick; push(n); } }
+  }
+  function open(i) {                           // Открытие с раскрытием пустых областей, как в игре
+    const s = [i];
+    while (s.length) {
+      const x = s.pop();
+      if (st[x]) continue;
+      if (mine[x]) throw new Error("Решатель ошибся: открыта бомбочка " + x);
+      st[x] = 1; opened++; push(x); touch(x);
+      if (!adj[x]) for (let k = 0; k < NC[x]; k++) { const n = NB[x * 8 + k]; if (!st[n]) s.push(n); }
+    }
+  }
+  function mark(i) {
+    if (st[i]) return;
+    if (!mine[i]) throw new Error("Решатель ошибся: бомбочка отмечена на пустой клетке " + i);
+    st[i] = 2; km++; touch(i);
+  }
+  function look(c, out) {                      // Неизвестные соседи открытой клетки и сколько бомбочек среди них
+    out.length = 0;
+    let k = 0;
+    for (let j = 0; j < NC[c]; j++) { const n = NB[c * 8 + j]; if (!st[n]) out.push(n); else if (st[n] === 2) k++; }
+    return adj[c] - k;
+  }
+  function hasUnknown(c) {
+    for (let j = 0; j < NC[c]; j++) if (!st[NB[c * 8 + j]]) return true;
+    return false;
+  }
+
+  // Правило 1: число равно числу бомбочек вокруг — остальное пусто; равно числу закрытых — все бомбочки
+  function simple(c) {
+    if (st[c] !== 1) return;
+    const need = look(c, UA);
+    if (!UA.length) return;
+    if (need < 0 || need > UA.length) throw new Error("Противоречие в клетке " + c);
+    if (need === 0) for (const n of UA) open(n);
+    else if (need === UA.length) for (const n of UA) mark(n);
+  }
+
+  // Правило 2: сравнение двух соседних чисел через общие и собственные закрытые клетки
+  function pair(a, b) {
+    const na = look(a, UA); if (!UA.length) return false;
+    const nb = look(b, UB); if (!UB.length) return false;
+    const s = ++stp, sc = ++stp;
+    for (const x of UA) stamp[x] = s;
+    OB.length = 0; CM.length = 0;
+    for (const x of UB) if (stamp[x] === s) { stamp[x] = sc; CM.push(x); } else OB.push(x);
+    if (!CM.length) return false;
+    OA.length = 0;
+    for (const x of UA) if (stamp[x] !== sc) OA.push(x);
+    const I = CM.length, lo = Math.max(0, na - OA.length, nb - OB.length), hi = Math.min(I, na, nb);
+    if (lo > hi) throw new Error("Противоречие в паре " + a + "/" + b);
+    let hit = false;
+    if (OA.length) {
+      if (na - hi === OA.length) { for (const x of OA) mark(x); hit = true; }
+      else if (na - lo === 0) { for (const x of OA) open(x); hit = true; }
+    }
+    if (OB.length) {
+      if (nb - hi === OB.length) { for (const x of OB) mark(x); hit = true; }
+      else if (nb - lo === 0) { for (const x of OB) open(x); hit = true; }
+    }
+    if (lo === I) { for (const x of CM) mark(x); hit = true; }
+    else if (hi === 0) { for (const x of CM) open(x); hit = true; }
+    return hit;
+  }
+  function pairs() {
+    const list = dl;
+    dl = [];
+    for (const a of list) dirty[a] = 0;
+    let hit = false;
+    for (const a of list) {
+      if (st[a] !== 1 || !adj[a]) continue;
+      const ra = (a / C) | 0, ca = a % C;
+      for (let r = Math.max(0, ra - 2); r <= Math.min(R - 1, ra + 2); r++)
+        for (let c = Math.max(0, ca - 2); c <= Math.min(C - 1, ca + 2); c++) {
+          const b = r * C + c;
+          if (b !== a && st[b] === 1 && adj[b] && pair(a, b)) hit = true;
+        }
+    }
+    return hit;
+  }
+
+  // Полный перебор расстановок для набора закрытых клеток и чисел, которые их касаются.
+  // Возвращает для каждой клетки и каждого числа бомбочек в наборе: бывает ли клетка бомбочкой или пустой
+  function enumerate(cells, cons, budget, early) {
+    const n = cells.length, m = cons.length, W = n + 1, s = ++stp;
+    for (let x = 0; x < n; x++) { stamp[cells[x]] = s; lid[cells[x]] = x; }
+    const need = new Int32Array(m), cu = new Int32Array(m), cm = new Int32Array(m), cc = [];
+    for (let x = 0; x < n; x++) cc.push([]);
+    for (let j = 0; j < m; j++) {
+      const c = cons[j];
+      let k = 0;
+      for (let t = 0; t < NC[c]; t++) {
+        const y = NB[c * 8 + t];
+        if (!st[y]) {
+          if (stamp[y] !== s) throw new Error("Клетка вне перебора");
+          cc[lid[y]].push(j); cu[j]++;
+        } else if (st[y] === 2) k++;
+      }
+      need[j] = adj[c] - k;
+    }
+    const val = new Uint8Array(n), mk = new Uint8Array(n * W), sk = new Uint8Array(n * W), ck = new Uint8Array(W);
+    const am = new Uint8Array(n), as = new Uint8Array(n);
+    let nodes = 0, mines = 0, und = n, stop = false, aborted = false, sols = 0;
+    const rec = d => {
+      if (d === n) {
+        sols++; ck[mines] = 1;
+        for (let x = 0; x < n; x++) {
+          if (val[x]) { mk[x * W + mines] = 1; if (!am[x]) { am[x] = 1; if (as[x]) und--; } }
+          else { sk[x * W + mines] = 1; if (!as[x]) { as[x] = 1; if (am[x]) und--; } }
+        }
+        if (early && !und) stop = true;    // Выводов уже не будет: каждая клетка бывала и бомбочкой, и пустой
+        return;
+      }
+      if (++nodes > budget) { stop = aborted = true; return; }
+      const L = cc[d];
+      for (let v = 0; v < 2 && !stop; v++) {
+        val[d] = v; mines += v;
+        let ok = true;
+        for (const j of L) { cm[j] += v; cu[j]--; if (cm[j] > need[j] || cm[j] + cu[j] < need[j]) ok = false; }
+        if (ok) rec(d + 1);
+        for (const j of L) { cm[j] -= v; cu[j]++; }
+        mines -= v;
+      }
+    };
+    rec(0);
+    if (aborted) return null;
+    if (!sols) throw new Error("Нет ни одной расстановки");
+    return { W, mk, sk, ck, am, as };
+  }
+
+  // Правило 3: перебор вариантов в окне вокруг каждого числа на границе
+  function windows() {
+    for (let a = 0; a < N; a++) {
+      if (st[a] !== 1 || !adj[a] || !hasUnknown(a)) continue;
+      const ra = (a / C) | 0, ca = a % C;
+      let mx = 0;
+      for (let r = Math.max(0, ra - 3); r <= Math.min(R - 1, ra + 3); r++)
+        for (let c = Math.max(0, ca - 3); c <= Math.min(C - 1, ca + 3); c++) if (chg[r * C + c] > mx) mx = chg[r * C + c];
+      if (seen[a] >= mx) continue;             // Окно не менялось с прошлой проверки
+      seen[a] = tick;
+      const cons = [], cells = [], s = ++stp;
+      for (let d = 0; d <= 2; d++)             // Сначала ближние к центру числа: так перебор быстрее отсекает тупики
+        for (let r = Math.max(0, ra - d); r <= Math.min(R - 1, ra + d); r++)
+          for (let c = Math.max(0, ca - d); c <= Math.min(C - 1, ca + d); c++) {
+            if (Math.max(Math.abs(r - ra), Math.abs(c - ca)) !== d) continue;
+            const b = r * C + c;
+            if (st[b] !== 1 || !adj[b] || !hasUnknown(b)) continue;
+            cons.push(b);
+            for (let t = 0; t < NC[b]; t++) { const y = NB[b * 8 + t]; if (!st[y] && stamp[y] !== s) { stamp[y] = s; cells.push(y); } }
+          }
+      const res = enumerate(cells, cons, 20000, true);
+      if (!res) continue;
+      let hit = false;
+      for (let x = 0; x < cells.length; x++) {
+        if (!res.am[x]) { open(cells[x]); hit = true; }
+        else if (!res.as[x]) { mark(cells[x]); hit = true; }
+      }
+      if (hit) return true;
+    }
+    return false;
+  }
+
+  // Правило 4: общий счётчик бомбочек. Работает в конце партии, когда граница уже небольшая
+  function global() {
+    const U = N - opened - km, Rm = M - km;
+    if (!U) return false;
+    if (Rm === 0 || Rm === U) {
+      for (let i = 0; i < N; i++) if (!st[i]) { if (Rm) mark(i); else open(i); }
+      return true;
+    }
+    const F = [], inner = [];
+    for (let i = 0; i < N; i++) {
+      if (st[i]) continue;
+      let f = false;
+      for (let k = 0; k < NC[i]; k++) if (st[NB[i * 8 + k]] === 1) { f = true; break; }
+      (f ? F : inner).push(i);
+    }
+    if (!F.length || F.length > 64) return false;
+    const I = inner.length, s = ++stp, s2 = ++stp2, comps = [];
+    for (const x of F) {
+      if (stamp[x] === s) continue;
+      const cells = [x], cons = [];
+      stamp[x] = s;
+      for (let h = 0; h < cells.length; h++) {
+        const y = cells[h];
+        for (let k = 0; k < NC[y]; k++) {
+          const c = NB[y * 8 + k];
+          if (st[c] !== 1 || cst[c] === s2) continue;
+          cst[c] = s2; cons.push(c);
+          for (let t = 0; t < NC[c]; t++) { const z = NB[c * 8 + t]; if (!st[z] && stamp[z] !== s) { stamp[z] = s; cells.push(z); } }
+        }
+      }
+      comps.push({ cells, cons });
+    }
+    const res = [];
+    for (const cp of comps) { const r = enumerate(cp.cells, cp.cons, 300000, false); if (!r) return false; res.push(r); }
+    const conv = (A, B) => {
+      const o = new Uint8Array(A.length + B.length - 1);
+      for (let x = 0; x < A.length; x++) if (A[x]) for (let y = 0; y < B.length; y++) if (B[y]) o[x + y] = 1;
+      return o;
+    };
+    const nc = res.length, pre = [Uint8Array.of(1)], suf = [];
+    for (let j = 0; j < nc; j++) pre.push(conv(pre[j], res[j].ck));
+    suf[nc] = Uint8Array.of(1);
+    for (let j = nc - 1; j >= 0; j--) suf[j] = conv(res[j].ck, suf[j + 1]);
+    let hit = false;
+    for (let j = 0; j < nc; j++) {
+      const S = conv(pre[j], suf[j + 1]), r = res[j], cells = comps[j].cells, W = r.W, okk = new Uint8Array(W);
+      for (let k = 0; k < W; k++) for (let x = 0; x < S.length; x++) {
+        const t = Rm - k - x;                  // Сколько бомбочек осталось бы на клетки вдали от чисел
+        if (S[x] && t >= 0 && t <= I) { okk[k] = 1; break; }
+      }
+      for (let x = 0; x < cells.length; x++) {
+        let mm = false, ss = false;
+        for (let k = 0; k < W; k++) if (okk[k]) { if (r.mk[x * W + k]) mm = true; if (r.sk[x * W + k]) ss = true; }
+        if (!mm && !ss) throw new Error("Противоречие счётчика");
+        if (!mm) { open(cells[x]); hit = true; } else if (!ss) { mark(cells[x]); hit = true; }
+      }
+    }
+    if (I) {
+      const T = pre[nc];
+      let any = false, zero = true, full = true;
+      for (let x = 0; x < T.length; x++) {
+        const t = Rm - x;
+        if (!T[x] || t < 0 || t > I) continue;
+        any = true;
+        if (t) zero = false;
+        if (t !== I) full = false;
+      }
+      if (any && (zero || full)) for (const i of inner) if (!st[i]) { if (zero) open(i); else mark(i); hit = true; }
+    }
+    return hit;
+  }
+
+  // Правка расстановки в месте застревания: вокруг случайного числа на границе закрытые клетки
+  // делаются все пустыми или все бомбочками (что дешевле). Бомбочки уходят в дальние закрытые клетки
+  function perturb() {
+    const act = [];
+    for (let i = 0; i < N; i++) if (st[i] === 1 && adj[i] && hasUnknown(i)) act.push(i);
+    if (!act.length) return false;
+    const a = act[rnd(act.length)], need = look(a, UA), u = UA.slice(), s = ++stp;
+    for (const x of u) stamp[x] = s;
+    const iF = [], oF = [], iM = [], oM = [];
+    for (let i = 0; i < N; i++) {
+      if (st[i] || stamp[i] === s) continue;
+      let far = true;
+      for (let k = 0; k < NC[i]; k++) if (st[NB[i * 8 + k]] === 1) { far = false; break; }
+      (mine[i] ? (far ? iM : oM) : (far ? iF : oF)).push(i);
+    }
+    const cClear = need, cFill = u.length - need;
+    const canC = iF.length + oF.length >= cClear, canF = iM.length + oM.length >= cFill;
+    if (!canC && !canF) return false;
+    const clear = canC && (!canF || cClear < cFill || (cClear === cFill && rnd(2) === 0));
+    const take = (A, B) => { const P = A.length ? A : B, j = rnd(P.length), t = P[j]; P[j] = P[P.length - 1]; P.pop(); return t; };
+    for (const x of u) {
+      if (clear && mine[x]) { const t = take(iF, oF); setMine(x, 0); setMine(t, 1); touch(x); touch(t); }
+      else if (!clear && !mine[x]) { const t = take(iM, oM); setMine(x, 1); setMine(t, 0); touch(x); touch(t); }
+    }
+    return true;
+  }
+
+  function* run(allow) {
+    st.fill(0); inQ.fill(0); dirty.fill(0); chg.fill(0); seen.fill(0);
+    q = []; dl = []; tick = 0; opened = 0; km = 0; pert = 0;
+    open(safe);
+    for (;;) {
+      while (q.length) { const c = q.pop(); inQ[c] = 0; simple(c); }
+      if (opened === N - M) return true;
+      if (pairs()) continue;
+      if (windows() || global()) { yield; continue; }
+      if (!allow || !perturb()) return false;
+      pert++;
+      yield;
+    }
+  }
+
+  for (;;) {
+    fill();
+    for (let round = 0; round < 12; round++) {
+      if (!(yield* run(true))) break;          // Тупик без возможности правки: новая расстановка с нуля
+      if (!pert) return { mine, adj };         // Решено целиком одной логикой, без правок
+    }
+  }
+}
+</script>
 
 <script>
 "use strict";
@@ -178,38 +529,52 @@ const $ = id => document.getElementById(id);
 const board = $("board");
 
 // Мультяшная Бэтти: data-s перечисляет выражения, в которых деталь видна
-const BETTY = '<g data-s="normal press win"><path d="M33 46 Q24 12 42 2 Q53 20 51 36 Z" fill="#6f5a49"/><path d="M37 42 Q31 17 42 8 Q48 24 47 36 Z" fill="#e9c3ad"/></g>'
+const BETTY = '<g class="ear" data-s="normal press win"><path d="M33 46 Q24 12 42 2 Q53 20 51 36 Z" fill="#6f5a49"/><path d="M37 42 Q31 17 42 8 Q48 24 47 36 Z" fill="#e9c3ad"/></g>'
   + '<path data-s="lose" d="M40 33 Q19 29 11 55 Q20 62 29 52 Q35 43 41 40 Z" fill="#6f5a49"/>'
-  + '<path d="M80 33 Q101 27 110 53 Q101 61 92 51 Q86 43 80 40 Z" fill="#d2b48e"/><path d="M86 36 Q100 33 106 51" fill="none" stroke="#a88a68" stroke-width="2" stroke-linecap="round"/>'
+  + '<g class="ear2"><path d="M80 33 Q101 27 110 53 Q101 61 92 51 Q86 43 80 40 Z" fill="#d2b48e"/><path d="M86 36 Q100 33 106 51" fill="none" stroke="#a88a68" stroke-width="2" stroke-linecap="round"/></g>'
   + '<ellipse cx="60" cy="63" rx="34" ry="35" fill="#e8d1b0"/>'
   + '<path d="M28 54 Q28 30 53 28 L55 41 Q54 62 41 69 Q28 66 28 54 Z" fill="#86705f"/><path d="M92 54 Q92 30 67 28 L65 41 Q66 62 79 69 Q92 66 92 54 Z" fill="#86705f"/>'
   + '<path d="M55 27 Q60 25 65 27 L66 48 Q76 60 76 76 Q60 94 44 76 Q44 60 54 48 Z" fill="#faf5ec"/><ellipse cx="60" cy="81" rx="19" ry="13" fill="#faf5ec"/>'
   + '<g data-s="normal press win" stroke="#3d2f26" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M38 42 Q44 38 51 41"/><path d="M69 41 Q76 38 82 42"/></g>'
   + '<g data-s="lose" stroke="#3d2f26" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M38 45 Q45 42 51 38"/><path d="M69 38 Q75 42 82 45"/></g>'
-  + '<g data-s="normal lose"><circle cx="45" cy="54" r="8" fill="#1a1310"/><circle cx="75" cy="54" r="8" fill="#1a1310"/><circle cx="47.6" cy="51" r="2.7" fill="#fff"/><circle cx="77.6" cy="51" r="2.7" fill="#fff"/></g>'
-  + '<g data-s="press"><circle cx="45" cy="54" r="9.5" fill="#fff"/><circle cx="75" cy="54" r="9.5" fill="#fff"/><circle cx="45" cy="55" r="6.5" fill="#1a1310"/><circle cx="75" cy="55" r="6.5" fill="#1a1310"/><circle cx="47" cy="53" r="2.2" fill="#fff"/><circle cx="77" cy="53" r="2.2" fill="#fff"/></g>'
+  + '<g class="ey" data-s="normal lose"><circle cx="45" cy="54" r="8" fill="#1a1310"/><circle cx="75" cy="54" r="8" fill="#1a1310"/><circle cx="47.6" cy="51" r="2.7" fill="#fff"/><circle cx="77.6" cy="51" r="2.7" fill="#fff"/></g>'
+  + '<g class="ey" data-s="press"><circle cx="45" cy="54" r="9.5" fill="#fff"/><circle cx="75" cy="54" r="9.5" fill="#fff"/><circle cx="45" cy="55" r="6.5" fill="#1a1310"/><circle cx="75" cy="55" r="6.5" fill="#1a1310"/><circle cx="47" cy="53" r="2.2" fill="#fff"/><circle cx="77" cy="53" r="2.2" fill="#fff"/></g>'
   + '<g data-s="win" stroke="#1a1310" stroke-width="3.2" stroke-linecap="round" fill="none"><path d="M38 57 Q45 48 52 57"/><path d="M68 57 Q75 48 82 57"/></g>'
   + '<path data-s="lose" d="M80 62 Q76 69 80 72 Q84 69 80 62 Z" fill="#7fd3ff"/>'
   + '<g data-s="win" fill="#ff8f8f" opacity=".5"><ellipse cx="36" cy="67" rx="5" ry="3"/><ellipse cx="84" cy="67" rx="5" ry="3"/></g>'
   + '<ellipse cx="60" cy="71" rx="10" ry="7.2" fill="#161616"/><ellipse cx="56.5" cy="68.5" rx="3" ry="1.7" fill="#5c5c5c"/>'
   + '<path d="M33 94 Q60 108 87 94 L87 101 Q60 115 33 101 Z" fill="#b0262f"/><circle cx="60" cy="110" r="4" fill="#e3c35a"/>'
-  + '<g data-s="normal win"><path d="M49 80 Q54.5 85 60 81 Q65.5 85 71 80" fill="none" stroke="#3a2a22" stroke-width="2" stroke-linecap="round"/><path d="M54 82 Q53 104 60 106 Q67 104 66 82 Q60 85 54 82 Z" fill="#c9525f"/><path d="M60 85 L60 100" stroke="#a63d4a" stroke-width="1.6" stroke-linecap="round"/></g>'
+  + '<g data-s="normal win"><path d="M49 80 Q54.5 85 60 81 Q65.5 85 71 80" fill="none" stroke="#3a2a22" stroke-width="2" stroke-linecap="round"/><g class="tng"><path d="M54 82 Q53 104 60 106 Q67 104 66 82 Q60 85 54 82 Z" fill="#c9525f"/><path d="M60 85 L60 100" stroke="#a63d4a" stroke-width="1.6" stroke-linecap="round"/></g></g>'
   + '<ellipse data-s="press" cx="60" cy="84" rx="3.8" ry="4.4" fill="#3a2a22"/>'
   + '<path data-s="lose" d="M51 88 Q60 81 69 88" fill="none" stroke="#3a2a22" stroke-width="2.2" stroke-linecap="round"/>';
 document.querySelectorAll("svg.b").forEach(s => s.innerHTML = BETTY);
 $("favicon").href = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><style>[data-s]{display:none}[data-s~=normal]{display:inline}</style>' + BETTY + '</svg>');
-function setFace(st) { document.querySelectorAll("svg.b.live").forEach(s => s.setAttribute("class", "b live" + (st === "normal" ? "" : " " + st))); }
+function expr(s, st) { s.classList.remove("press", "lose", "win"); if (st !== "normal") s.classList.add(st); }
+function setFace(st) { document.querySelectorAll("svg.b.live").forEach(s => expr(s, st)); }
 
-// Размеры поля: строки, столбцы, мины
-const PRESETS = [[8,8,10],[9,9,10],[12,12,22],[16,16,40],[16,30,99],[20,30,120],[24,30,150],[30,30,180],[40,40,320],[50,50,500]];
-const DEF = 4, LIM = 50;
+// Бэтти моргает сама: каждая мордочка в своём ритме, иногда дважды подряд
+function blinker(s) {
+  const once = () => {
+    s.classList.remove("blink");
+    void s.getBoundingClientRect();            // Перезапуск анимации моргания
+    s.classList.add("blink");
+    setTimeout(() => s.classList.remove("blink"), 220);
+  };
+  const next = () => setTimeout(() => { once(); if (rnd(4) === 0) setTimeout(once, 280); next(); }, 1800 + rnd(3200));
+  next();
+}
+document.querySelectorAll("svg.b").forEach(blinker);
+
+// Размеры поля: строки, столбцы, бомбочки (около 17% клеток)
+const PRESETS = [];
+for (let n = 10; n <= 100; n += 5) PRESETS.push([n, n, Math.round(n * n * .17)]);
 const MAX = 128, MINS = 20, MINT = 24, GAP = 2, BPAD = 16 + 4, STEP = 1.15;
 
 const WIN_TXT = ["Бэтти молодец!", "Бэтти виляет хвостом!", "Гав! Все бомбочки найдены!", "Бэтти заслужила косточку!", "Нюх не подвёл!", "Лучшая сапёрка района!"];
 const LOSE_TXT = ["Бэтти огорчена…", "Бэтти прижала уши…", "Ой-ой, Бэтти поскуливает…", "Не тот куст понюхала…", "Бэтти ушла под диван…", "Бэтти просит ещё попытку!"];
-const pick = a => a[Math.floor(Math.random() * a.length)];
+const pick = a => a[rnd(a.length)];
 
-let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0;
+let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0, genTok = 0, genMsgT = 0;
 
 // Сохранение настроек: на file:// и в приватном режиме хранилище может быть недоступно
 const store = {
@@ -219,28 +584,15 @@ const store = {
 
 function say(t, st) {
   $("dlgText").textContent = t;
-  $("dlgFace").setAttribute("class", "b " + st);
+  expr($("dlgFace"), st);
   const d = $("dlg");
   if (typeof d.showModal === "function") { if (!d.open) d.showModal(); } else alert(t);   // Старые браузеры без <dialog>
 }
 
-function params() {
-  const d = $("diff").value;
-  if (d !== "c") return PRESETS[+d] || PRESETS[DEF];
-  const r = +$("cr").value, c = +$("cc").value, m = +$("cm").value;
-  if (![r, c].every(v => Number.isInteger(v) && v >= 5 && v <= LIM)) return "Строки и столбцы: целые числа от 5 до " + LIM;
-  const mx = Math.floor(r * c * .75);
-  if (!Number.isInteger(m) || m < 1 || m > mx) return "Мин: от 1 до 75% клеток (" + mx + ")";
-  return [r, c, m];
-}
-
 function init() {
-  const p = params();
-  if (typeof p === "string") { $("err").textContent = p; return; }
-  $("err").textContent = "";
-  [R, C, M] = p;
-  store.set("size", $("diff").value);
-  if ($("diff").value === "c") store.set("custom", p);
+  genTok++; clearTimeout(genMsgT);             // Отмена генерации прошлой партии, если она ещё идёт
+  [R, C, M] = PRESETS[+$("diff").value] || PRESETS[0];
+  store.set("side", R);
   clearInterval(timer); secs = 0; state = "ready"; opened = 0; flags = 0;
   mine = new Uint8Array(R * C); adj = new Uint8Array(R * C); opn = new Uint8Array(R * C); flg = new Uint8Array(R * C); bone = new Uint8Array(R * C);
   board.style.setProperty("--r", R); board.style.setProperty("--c", C);
@@ -253,10 +605,14 @@ function init() {
   lcd(); fit(true);
 }
 
+function hms(s) {                              // Время в виде ЧЧ:ММ:СС, предел 99:59:59
+  s = Math.min(s, 359999);
+  return [(s / 3600) | 0, ((s % 3600) / 60) | 0, s % 60].map(v => String(v).padStart(2, "0")).join(":");
+}
 function lcd() {
   const v = Math.max(-99, M - flags);
   $("mc").textContent = v < 0 ? "-" + String(-v).padStart(2, "0") : String(v).padStart(3, "0");
-  $("tm").textContent = String(Math.min(secs, 99999)).padStart(5, "0");
+  $("tm").textContent = hms(secs);
 }
 
 // Основной ввод — палец (телефон/планшет)
@@ -303,17 +659,27 @@ function nb(i, f) {
   }
 }
 
-function place(safe) {
-  const ex = new Set([safe]);                  // Первый клик: безопасна клетка и её соседи, если места хватает
-  if (M <= R * C - 9) nb(safe, j => ex.add(j));
-  const pool = [];
-  for (let i = 0; i < R * C; i++) if (!ex.has(i)) pool.push(i);
-  for (let k = 0; k < M; k++) {
-    const j = k + Math.floor(Math.random() * (pool.length - k));
-    [pool[k], pool[j]] = [pool[j], pool[k]];
-    mine[pool[k]] = 1;
-  }
-  for (let i = 0; i < R * C; i++) if (!mine[i]) { let n = 0; nb(i, j => n += mine[j]); adj[i] = n; }
+// Первый ход: поле строится под него так, чтобы дальше всё решалось логикой.
+// Большие поля считаются частями, страница при этом не замирает
+function begin(i) {
+  if (flg[i]) return;
+  state = "gen";
+  const tok = ++genTok;
+  let it = genBoard(R, C, M, i);
+  genMsgT = setTimeout(() => { if (tok === genTok) $("msg").textContent = "🐾 Бэтти обнюхивает поле…"; }, 150);
+  const step = () => {
+    if (tok !== genTok) return;                // Партию уже перезапустили
+    const t = performance.now();
+    let r;
+    try { do r = it.next(); while (!r.done && performance.now() - t < 25); }
+    catch (e) { it = genBoard(R, C, M, i); r = { done: false }; }   // Сбой проверки: заново с другой расстановкой
+    if (!r.done) { setTimeout(step, 0); return; }
+    clearTimeout(genMsgT); $("msg").textContent = "";
+    mine = r.value.mine; adj = r.value.adj;
+    start();
+    reveal(i);
+  };
+  step();
 }
 
 function paint(i) {
@@ -334,8 +700,8 @@ function start() {
 }
 
 function reveal(i) {
-  if (state === "won" || state === "lost" || opn[i] || flg[i]) return;
-  if (state === "ready") { place(i); start(); }
+  if (state === "ready") return begin(i);
+  if (state !== "play" || opn[i] || flg[i]) return;
   if (mine[i]) return lose(i);
   const st = [i];
   while (st.length) {
@@ -356,7 +722,7 @@ function chord(i) {
 
 function markOf(i) { return flg[i] ? 1 : bone[i] ? 2 : 0; }   // 0 пусто, 1 лапка (флаг), 2 косточка (знак)
 function canMark(i) {
-  if (state === "won" || state === "lost" || opn[i]) return false;
+  if (state === "won" || state === "lost" || state === "gen" || opn[i]) return false;
   const now = performance.now();               // Защита от дребезга кнопки: два вызова подряд по одной клетке
   if (i === lastI && now - lastT < 120) return false;
   lastI = i; lastT = now;
@@ -369,7 +735,7 @@ function setMark(i, m) {
 function toggle(i) { if (canMark(i)) setMark(i, (markOf(i) + 1) % 3); }          // ПКМ / долгий тап: пусто → 🐾 → 🦴 → пусто
 function tapMark(i, m) { if (canMark(i)) setMark(i, markOf(i) === m ? 0 : m); }   // Панель: нажать ту же метку — снять её
 
-function end() { clearInterval(timer); secs = Math.min(99999, ((Date.now() - t0) / 1000) | 0); lcd(); }
+function end() { clearInterval(timer); secs = Math.min(359999, ((Date.now() - t0) / 1000) | 0); lcd(); }
 
 // Звуки синтезируются на лету, без файлов
 let ac = null;
@@ -424,9 +790,9 @@ function win() {
   for (let i = 0; i < R * C; i++) if (mine[i] && !flg[i]) { flg[i] = 1; bone[i] = 0; paint(i); }
   flags = M; lcd();
   const t = pick(WIN_TXT);
-  setFace("win"); $("msg").textContent = "🏆 Бомбочки найдены за " + secs + " с. " + t;
+  setFace("win"); $("msg").textContent = "🏆 Бомбочки найдены за " + hms(secs) + ". " + t;
   soundWin();
-  say("🏆 Бомбочки найдены за " + secs + " с.\n" + t, "win");
+  say("🏆 Бомбочки найдены за " + hms(secs) + ".\n" + t, "win");
 }
 
 board.addEventListener("click", e => {
@@ -455,7 +821,7 @@ board.addEventListener("pointerdown", e => {
   if (ptype === "mouse") return;
   lpT = setTimeout(() => lpToggle(+t.dataset.i), 450);
 });
-const relax = () => { clearTimeout(lpT); if (state === "ready" || state === "play") setFace("normal"); };
+const relax = () => { clearTimeout(lpT); if (state !== "won" && state !== "lost") setFace("normal"); };
 ["pointerup", "pointercancel"].forEach(n => addEventListener(n, relax));
 board.addEventListener("pointerleave", () => clearTimeout(lpT));
 board.addEventListener("pointermove", e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) clearTimeout(lpT); }); // Дрожание пальца не отменяет долгий тап
@@ -467,7 +833,6 @@ function unlockAudio() {                       // Разблокировка з�
 ["pointerup", "touchend", "click", "keydown"].forEach(n => addEventListener(n, unlockAudio, true));
 
 $("face").onclick = init;
-$("go").onclick = init;
 $("zIn").onclick = () => setZoom(STEP);
 $("zOut").onclick = () => setZoom(1 / STEP);
 addEventListener("keydown", e => {
@@ -477,15 +842,9 @@ addEventListener("keydown", e => {
 });
 
 // Список полей и восстановление выбора
-$("diff").innerHTML = PRESETS.map((p, k) => '<option value="' + k + '">' + p[0] + "×" + p[1] + " / " + p[2] + "</option>").join("") + '<option value="c">Свой размер</option>';
-{
-  const sv = String(store.get("size", DEF)), cu = store.get("custom", null);
-  $("diff").value = (sv === "c" || PRESETS[+sv]) ? sv : String(DEF);
-  if (Array.isArray(cu) && cu.length === 3) { $("cr").value = cu[0]; $("cc").value = cu[1]; $("cm").value = cu[2]; }
-}
-const syncCustom = () => { $("custom").style.display = $("diff").value === "c" ? "flex" : "none"; };
-$("diff").onchange = () => { syncCustom(); if ($("diff").value !== "c") init(); };
-addEventListener("pageshow", syncCustom);    // Браузер может восстановить выбор формы из кэша страницы
+$("diff").innerHTML = PRESETS.map((p, k) => '<option value="' + k + '">' + p[0] + "×" + p[1] + " / " + p[2] + "</option>").join("");
+$("diff").value = String(Math.max(0, PRESETS.findIndex(p => p[0] === store.get("side", 10))));
+$("diff").onchange = init;
 
 $("dlg").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 function setVW() { document.documentElement.style.setProperty("--vw", document.documentElement.clientWidth + "px"); }   // Ширина окна без полосы прокрутки
@@ -504,7 +863,6 @@ function syncUI() {
 document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
 if (touchUI.addEventListener) touchUI.addEventListener("change", syncUI); else if (touchUI.addListener) touchUI.addListener(syncUI);   // Старый Safari
 document.body.classList.toggle("touch", touchUI.matches);
-syncCustom();
 init();
 
 // Офлайн-режим для версии на GitHub Pages; при открытии файлом не используется
