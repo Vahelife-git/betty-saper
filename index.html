@@ -747,7 +747,7 @@ function begin(i) {
   state = "gen";
   const tok = ++genTok, prog = {};
   let it = genBoard(R, C, M, i, prog), shown = false;
-  const progMsg = () => { $("msg").textContent = "🐾 Бэтти обнюхивает поле… экспертных задачек: " + (prog.cur || 0) + " из " + (prog.target || 0); };
+  const progMsg = () => { $("msg").textContent = "🐾 Бэтти обнюхивает поле… "; };
   genMsgT = setTimeout(() => { if (tok === genTok) { shown = true; progMsg(); } }, 150);
   const step = () => {
     if (tok !== genTok) return;                // Партию уже перезапустили
