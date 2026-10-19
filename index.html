@@ -93,15 +93,6 @@ body.touch #tools .sep{display:block}
 @keyframes ear2{0%,78%,100%{transform:rotate(0)}84%{transform:rotate(9deg)}90%{transform:rotate(-3deg)}95%{transform:rotate(4deg)}}
 .b.act .tng{transform-origin:50% 0;animation:tng 1.5s ease-in-out infinite}
 @keyframes tng{0%,100%{transform:rotate(-5deg) scaleY(1)}50%{transform:rotate(5deg) scaleY(1.07)}}
-/* Нюх: Бэтти принюхивается (нос подрагивает, голова кивает), подсказанные клетки обведены */
-.b .nose{transform-box:fill-box;transform-origin:center}
-.b.sniff .nose{animation:sniff .22s ease-in-out 6}
-@keyframes sniff{50%{transform:scale(1.15,.85)}}
-.b.sniff{animation:bob 1.3s ease-in-out}
-@keyframes bob{25%{transform:translateY(3px) rotate(-4deg)}50%{transform:translateY(0)}75%{transform:translateY(3px) rotate(4deg)}}
-.c.hint{box-shadow:inset 0 0 0 3px var(--teal),0 0 10px var(--teal);z-index:1}
-#tools .nose-ic{width:1em;height:1em;display:block}
-#tools button:disabled{opacity:.45;cursor:default}
 
 @media (hover:none) and (pointer:coarse){
 	.hdr{margin:8px 6px 0;gap:10px}
@@ -119,13 +110,20 @@ body.touch #tools .sep{display:block}
 	#tools .zm{min-width:48px}
 }
 
-@media (max-width:480px){                     /* Телефоны: панель из 6 кнопок целиком влезает в экран */
-	#tools{gap:3px;padding:4px}
-	#tools .grp{gap:3px}
-	#tools .sep{margin:4px 0}
-	#tools button,#tools .zm{min-width:0;flex:1 1 auto;padding:4px 3px;font-size:21px;min-height:52px}
-	#tools button span{font-size:10px}
+@media (max-width:480px){                     /* Телефоны: крупные кнопки на всю ширину экрана */
+	body.touch{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+	body.touch #tools{left:8px;right:8px;transform:none;max-width:none;gap:4px;padding:6px}
+	body.touch #tools .grp{gap:4px}
+	body.touch #tools .tgrp{flex:3 1 0}         /* Копать, Лапка, Косточка */
+	body.touch #tools .grp:not(.tgrp){flex:2 1 0}   /* Мельче, Крупнее */
+	body.touch #tools .sep{margin:6px 0}
+	body.touch #tools button,body.touch #tools .zm{min-width:0;flex:1 1 0;padding:6px 2px;font-size:30px;min-height:72px;gap:6px}
+	body.touch #tools button span{font-size:13px}
 	.lcd{font-size:19px;padding:6px 7px;min-width:52px}   /* Таймер ЧЧ:ММ:СС помещается рядом с мордой */
+}
+@media (max-width:360px){                     /* Самые узкие телефоны */
+	body.touch #tools button,body.touch #tools .zm{font-size:26px;min-height:66px}
+	body.touch #tools button span{font-size:11px}
 }
 
 @supports (appearance: base-select){
@@ -173,10 +171,6 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
   </div>
   <div class="sep"></div>
   <div class="grp">
-    <button id="sniffBtn" title="Нюх: Бэтти подскажет экспертную задачку (клавиша N)" disabled><svg class="nose-ic" viewBox="0 0 40 40" aria-hidden="true"><path d="M5 9 Q8 5 11 9 Q14 13 17 9" fill="none" stroke="#f6efe0" stroke-width="2.2" stroke-linecap="round" opacity=".8"/><path d="M23 9 Q26 5 29 9 Q32 13 35 9" fill="none" stroke="#f6efe0" stroke-width="2.2" stroke-linecap="round" opacity=".8"/><ellipse cx="20" cy="26" rx="16" ry="12" fill="#e8d1b0"/><ellipse cx="20" cy="23" rx="10" ry="7.2" fill="#161616"/><ellipse cx="16.5" cy="20.5" rx="3" ry="1.7" fill="#5c5c5c"/><path d="M20 30 L20 35" stroke="#3a2a22" stroke-width="2" stroke-linecap="round"/></svg><span>Нюх</span></button>
-  </div>
-  <div class="sep"></div>
-  <div class="grp">
     <button class="zm" id="zOut" title="Клетки мельче (клавиша −)">－<span>Мельче</span></button>
     <button class="zm" id="zIn" title="Клетки крупнее (клавиша +)">＋<span>Крупнее</span></button>
   </div>
@@ -192,17 +186,20 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
 "use strict";
 // ===== Настройки сложности: менять только здесь =====
 // Сложнее: больше density, expertPer100, expertMax, genBudgetMs.
-// Проще: меньше density; expertPer100 = 0 — экспертные задачки не обязательны (останется только «без угадывания»).
-// Глубже задачки: maxNums 6, maxCells 12. Мельче: maxNums 4, maxCells 8 (minNums не меньше 3).
+// Проще: меньше density, expertPer100, expertMax; expertPer100 = 0 — экспертные задачки не обязательны
+// (останется только «без угадывания»).
+// Глубже задачки: maxNums 6, maxCells 12. Мельче: maxNums 4, maxCells 8 (minNums всегда 3, maxNums не меньше 3)
 const DIFF = {
-  density: 0.22,       // Доля клеток с бомбочками (0.22 = 22%)
+  density: 0.20,       // Доля клеток с бомбочками (0.22 = 22%)
   minNums: 3,          // Экспертная задачка: сколько чисел минимум надо сопоставить одновременно
   maxNums: 5,          // Больше чисел в одной задачке не бывает
   maxCells: 10,        // Больше закрытых клеток в одной задачке не бывает
   expertPer100: 1,     // Цель: обязательных экспертных задачек на каждые 100 клеток поля…
-  expertMax: 20,       // …но не больше стольких на одно поле
+  expertMax: 10,       // …но не больше стольких на одно поле
   genBudgetMs: 25000,  // Сколько максимум (мс) Бэтти усложняет поле; потом берётся лучшее найденное
-  countCells: 10,      // Подсчёт оставшихся бомбочек разрешён, когда закрытых клеток не больше
+  countCells: 0,       // 0 — задачек «посчитай оставшиеся бомбочки» нет: всё решается видимыми числами.
+                       // Больше 0 — такие задачки разрешены, когда закрытых клеток не больше этого числа
+                       // (игроку тогда надо отметить лапками все остальные бомбочки, чтобы счётчик был точным)
   addBias: 0.75,       // При правке поля: как часто бомбочка добавляется, а не убирается (0…1)
   tries: 24            // Сколько вариантов правки пробовать в месте застревания
 };
@@ -605,31 +602,6 @@ function* genBoard(R, C, M, safe0, prog) {
   return { mine, adj, experts: cur, target };
 }
 
-// Подсказка «Нюх»: по открытым игроком клеткам ищет экспертную задачку (minNums…maxNums чисел или подсчёт).
-// Очевидные выводы решатель делает про себя и подсказкой не показывает. Лапки игрока не учитываются
-function* hintSearch(R, C, adj, M, opn) {
-  const G = makeGrid(R, C), sv = makeSolver(G, adj, M, false, null);
-  for (let i = 0; i < G.N; i++) if (opn[i]) sv.setOpen(i);
-  for (;;) {
-    sv.simpleAll();
-    if (DIFF.minNums > 2 && sv.pairs()) continue;
-    let applied = false;
-    for (let k = 2; k <= DIFF.maxNums; k++) {
-      if (k === 2 && DIFF.minNums > 2) continue;
-      if (k < DIFF.minNums) { if (yield* sv.subsets(k, false)) { applied = true; break; } }
-      else {
-        const out = [];
-        yield* sv.subsets(k, true, out);
-        if (out.length) return { k, cands: out, sv };
-      }
-    }
-    if (applied) continue;
-    const out = [], c = sv.count(true, out);
-    if (c === 1) continue;
-    if (out.length) return { k: 0, cands: out, sv };
-    return { k: -1, cands: [], sv };
-  }
-}
 </script>
 
 <script>
@@ -651,7 +623,7 @@ const BETTY = '<g class="ear" data-s="normal press win"><path d="M33 46 Q24 12 4
   + '<g data-s="win" stroke="#1a1310" stroke-width="3.2" stroke-linecap="round" fill="none"><path d="M38 57 Q45 48 52 57"/><path d="M68 57 Q75 48 82 57"/></g>'
   + '<path data-s="lose" d="M80 62 Q76 69 80 72 Q84 69 80 62 Z" fill="#7fd3ff"/>'
   + '<g data-s="win" fill="#ff8f8f" opacity=".5"><ellipse cx="36" cy="67" rx="5" ry="3"/><ellipse cx="84" cy="67" rx="5" ry="3"/></g>'
-  + '<g class="nose"><ellipse cx="60" cy="71" rx="10" ry="7.2" fill="#161616"/><ellipse cx="56.5" cy="68.5" rx="3" ry="1.7" fill="#5c5c5c"/></g>'
+  + '<ellipse cx="60" cy="71" rx="10" ry="7.2" fill="#161616"/><ellipse cx="56.5" cy="68.5" rx="3" ry="1.7" fill="#5c5c5c"/>'
   + '<path d="M33 94 Q60 108 87 94 L87 101 Q60 115 33 101 Z" fill="#b0262f"/><circle cx="60" cy="110" r="4" fill="#e3c35a"/>'
   + '<g data-s="normal win"><path d="M49 80 Q54.5 85 60 81 Q65.5 85 71 80" fill="none" stroke="#3a2a22" stroke-width="2" stroke-linecap="round"/><g class="tng"><path d="M54 82 Q53 104 60 106 Q67 104 66 82 Q60 85 54 82 Z" fill="#c9525f"/><path d="M60 85 L60 100" stroke="#a63d4a" stroke-width="1.6" stroke-linecap="round"/></g></g>'
   + '<ellipse data-s="press" cx="60" cy="84" rx="3.8" ry="4.4" fill="#3a2a22"/>'
@@ -684,7 +656,6 @@ const LOSE_TXT = ["Бэтти огорчена…", "Бэтти прижала �
 const pick = a => a[rnd(a.length)];
 
 let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0, genTok = 0, genMsgT = 0;
-let hintCells = [], hintTok = 0, hintBusy = false;
 
 // Сохранение настроек: на file:// и в приватном режиме хранилище может быть недоступно
 const store = {
@@ -701,7 +672,6 @@ function say(t, st) {
 
 function init() {
   genTok++; clearTimeout(genMsgT);             // Отмена генерации прошлой партии, если она ещё идёт
-  hintTok++; hintBusy = false; hintCells = [];
   [R, C, M] = PRESETS[+$("diff").value] || PRESETS[0];
   store.set("side", R);
   clearInterval(timer); secs = 0; state = "ready"; opened = 0; flags = 0;
@@ -713,7 +683,7 @@ function init() {
   el = board.children;
   setFace("normal"); $("msg").textContent = "";
   zoom = (store.get("zoom", {}))[R + "x" + C] || 1;
-  lcd(); fit(true); syncSniff();
+  lcd(); fit(true);
 }
 
 function hms(s) {                              // Время в виде ЧЧ:ММ:СС, предел 99:59:59
@@ -777,7 +747,7 @@ function begin(i) {
   state = "gen";
   const tok = ++genTok, prog = {};
   let it = genBoard(R, C, M, i, prog), shown = false;
-  const progMsg = () => { $("msg").textContent = "🐾 Бэтти обнюхивает поле… " };
+  const progMsg = () => { $("msg").textContent = "🐾 Бэтти обнюхивает поле… экспертных задачек: " + (prog.cur || 0) + " из " + (prog.target || 0); };
   genMsgT = setTimeout(() => { if (tok === genTok) { shown = true; progMsg(); } }, 150);
   const step = () => {
     if (tok !== genTok) return;                // Партию уже перезапустили
@@ -795,7 +765,6 @@ function begin(i) {
 }
 
 function paint(i) {
-  if (hintCells.indexOf(i) >= 0) clearHint();  // Подсказанную клетку открыли или отметили: обводка снимается
   const e = el[i];
   if (opn[i]) {
     e.className = "c o" + (adj[i] ? " n" + adj[i] : "");
@@ -810,56 +779,6 @@ function start() {
   state = "play";
   t0 = Date.now();
   timer = setInterval(() => { const v = ((Date.now() - t0) / 1000) | 0; if (v !== secs) { secs = v; lcd(); } }, 250);
-  syncSniff();
-}
-
-// Подсказка «Нюх»: Бэтти принюхивается и обводит две клетки из экспертной задачки —
-// в одной точно бомбочка, в другой точно пусто (какая где — решает игрок).
-// Если такой пары нет, обводится одна клетка, которую можно вычислить.
-// Очевидные ходы не подсказываются; лапки и косточки игрока не учитываются и не выдаются
-function syncSniff() { $("sniffBtn").disabled = state !== "play" || hintBusy; }
-function clearHint() {
-  const h = hintCells; hintCells = [];
-  for (const i of h) if (el[i]) el[i].classList.remove("hint");
-}
-function sniff() {
-  if (state !== "play" || hintBusy) return;
-  clearHint();
-  hintBusy = true; syncSniff();
-  const tok = ++hintTok, face = document.querySelector("#face svg"), tStart = performance.now();
-  face.classList.remove("sniff"); void face.getBoundingClientRect(); face.classList.add("sniff");
-  let it = hintSearch(R, C, adj, M, opn), res = null;
-  const finish = () => {
-    face.classList.remove("sniff");
-    hintBusy = false; syncSniff();
-    if (tok !== hintTok || state !== "play") return;
-    const free = x => !opn[x] && !flg[x] && !bone[x];
-    const cands = res ? res.cands.map(c => ({ mines: c.mines.filter(free), safes: c.safes.filter(free) })).filter(c => c.mines.length || c.safes.length) : [];
-    if (!cands.length) { $("msg").textContent = res && res.k < 0 ? "🐾 Бэтти: здесь всё видно и без нюха" : "🐾 Бэтти ничего нового не унюхала"; return; }
-    const both = cands.filter(c => c.mines.length && c.safes.length);
-    if (both.length) {
-      const c = pick(both);
-      hintCells = [pick(c.mines), pick(c.safes)];
-      $("msg").textContent = "🐾 Бэтти унюхала: в одной клетке бомбочка, в другой пусто";
-    } else {
-      const c = pick(cands);
-      hintCells = [pick(c.mines.concat(c.safes))];
-      $("msg").textContent = "🐾 Бэтти унюхала клетку, которую можно вычислить";
-    }
-    for (const i of hintCells) el[i].classList.add("hint");
-    el[hintCells[0]].scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
-  };
-  const step = () => {
-    if (tok !== hintTok) { face.classList.remove("sniff"); return; }
-    const t = performance.now();
-    let r;
-    try { do r = it.next(); while (!r.done && performance.now() - t < 25); }
-    catch (e) { r = { done: true, value: null }; }
-    if (!r.done) { setTimeout(step, 0); return; }
-    res = r.value;
-    setTimeout(finish, Math.max(0, 1300 - (performance.now() - tStart)));   // Анимация длится не меньше 1,3 с
-  };
-  setTimeout(step, 30);
 }
 
 function reveal(i) {
@@ -898,7 +817,7 @@ function setMark(i, m) {
 function toggle(i) { if (canMark(i)) setMark(i, (markOf(i) + 1) % 3); }          // ПКМ / долгий тап: пусто → 🐾 → 🦴 → пусто
 function tapMark(i, m) { if (canMark(i)) setMark(i, markOf(i) === m ? 0 : m); }   // Панель: нажать ту же метку — снять её
 
-function end() { clearInterval(timer); secs = Math.min(359999, ((Date.now() - t0) / 1000) | 0); lcd(); hintTok++; hintBusy = false; clearHint(); syncSniff(); document.querySelector("#face svg").classList.remove("sniff"); }
+function end() { clearInterval(timer); secs = Math.min(359999, ((Date.now() - t0) / 1000) | 0); lcd(); }
 
 // Звуки синтезируются на лету, без файлов
 let ac = null;
@@ -996,14 +915,12 @@ function unlockAudio() {                       // Разблокировка з�
 ["pointerup", "touchend", "click", "keydown"].forEach(n => addEventListener(n, unlockAudio, true));
 
 $("face").onclick = init;
-$("sniffBtn").onclick = sniff;
 $("zIn").onclick = () => setZoom(STEP);
 $("zOut").onclick = () => setZoom(1 / STEP);
 addEventListener("keydown", e => {
   if (e.target.matches("input,select")) return;
   if (e.key === "+" || e.key === "=") setZoom(STEP);
   else if (e.key === "-" || e.key === "_") setZoom(1 / STEP);
-  else if (e.key === "n" || e.key === "N" || e.key === "т" || e.key === "Т") sniff();
 });
 
 // Список полей и восстановление выбора
