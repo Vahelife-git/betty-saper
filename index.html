@@ -93,6 +93,15 @@ body.touch #tools .sep{display:block}
 @keyframes ear2{0%,78%,100%{transform:rotate(0)}84%{transform:rotate(9deg)}90%{transform:rotate(-3deg)}95%{transform:rotate(4deg)}}
 .b.act .tng{transform-origin:50% 0;animation:tng 1.5s ease-in-out infinite}
 @keyframes tng{0%,100%{transform:rotate(-5deg) scaleY(1)}50%{transform:rotate(5deg) scaleY(1.07)}}
+/* Нюх: Бэтти принюхивается (нос подрагивает, голова кивает), подсказанные клетки обведены */
+.b .nose{transform-box:fill-box;transform-origin:center}
+.b.sniff .nose{animation:sniff .22s ease-in-out 6}
+@keyframes sniff{50%{transform:scale(1.15,.85)}}
+.b.sniff{animation:bob 1.3s ease-in-out}
+@keyframes bob{25%{transform:translateY(3px) rotate(-4deg)}50%{transform:translateY(0)}75%{transform:translateY(3px) rotate(4deg)}}
+.c.hint{box-shadow:inset 0 0 0 3px var(--teal),0 0 10px var(--teal);z-index:1}
+#tools .nose-ic{width:1em;height:1em;display:block}
+#tools button:disabled{opacity:.45;cursor:default}
 
 @media (hover:none) and (pointer:coarse){
 	.hdr{margin:8px 6px 0;gap:10px}
@@ -110,11 +119,12 @@ body.touch #tools .sep{display:block}
 	#tools .zm{min-width:48px}
 }
 
-@media (max-width:400px){                     /* Узкие телефоны: панель целиком влезает в экран */
-	#tools{gap:4px;padding:5px}
-	#tools .grp{gap:4px}
-	#tools button,#tools .zm{min-width:0;flex:1 1 0;padding:4px 5px}
-	#tools button span{font-size:11px}
+@media (max-width:480px){                     /* Телефоны: панель из 6 кнопок целиком влезает в экран */
+	#tools{gap:3px;padding:4px}
+	#tools .grp{gap:3px}
+	#tools .sep{margin:4px 0}
+	#tools button,#tools .zm{min-width:0;flex:1 1 auto;padding:4px 3px;font-size:21px;min-height:52px}
+	#tools button span{font-size:10px}
 	.lcd{font-size:19px;padding:6px 7px;min-width:52px}   /* Таймер ЧЧ:ММ:СС помещается рядом с мордой */
 }
 
@@ -163,6 +173,10 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
   </div>
   <div class="sep"></div>
   <div class="grp">
+    <button id="sniffBtn" title="Нюх: Бэтти подскажет экспертную задачку (клавиша N)" disabled><svg class="nose-ic" viewBox="0 0 40 40" aria-hidden="true"><path d="M5 9 Q8 5 11 9 Q14 13 17 9" fill="none" stroke="#f6efe0" stroke-width="2.2" stroke-linecap="round" opacity=".8"/><path d="M23 9 Q26 5 29 9 Q32 13 35 9" fill="none" stroke="#f6efe0" stroke-width="2.2" stroke-linecap="round" opacity=".8"/><ellipse cx="20" cy="26" rx="16" ry="12" fill="#e8d1b0"/><ellipse cx="20" cy="23" rx="10" ry="7.2" fill="#161616"/><ellipse cx="16.5" cy="20.5" rx="3" ry="1.7" fill="#5c5c5c"/><path d="M20 30 L20 35" stroke="#3a2a22" stroke-width="2" stroke-linecap="round"/></svg><span>Нюх</span></button>
+  </div>
+  <div class="sep"></div>
+  <div class="grp">
     <button class="zm" id="zOut" title="Клетки мельче (клавиша −)">－<span>Мельче</span></button>
     <button class="zm" id="zIn" title="Клетки крупнее (клавиша +)">＋<span>Крупнее</span></button>
   </div>
@@ -176,6 +190,23 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
 
 <script id="gen">
 "use strict";
+// ===== Настройки сложности: менять только здесь =====
+// Сложнее: больше density, expertPer100, expertMax, genBudgetMs.
+// Проще: меньше density; expertPer100 = 0 — экспертные задачки не обязательны (останется только «без угадывания»).
+// Глубже задачки: maxNums 6, maxCells 12. Мельче: maxNums 4, maxCells 8 (minNums не меньше 3).
+const DIFF = {
+  density: 0.22,       // Доля клеток с бомбочками (0.22 = 22%)
+  minNums: 3,          // Экспертная задачка: сколько чисел минимум надо сопоставить одновременно
+  maxNums: 5,          // Больше чисел в одной задачке не бывает
+  maxCells: 10,        // Больше закрытых клеток в одной задачке не бывает
+  expertPer100: 1,     // Цель: обязательных экспертных задачек на каждые 100 клеток поля…
+  expertMax: 20,       // …но не больше стольких на одно поле
+  genBudgetMs: 25000,  // Сколько максимум (мс) Бэтти усложняет поле; потом берётся лучшее найденное
+  countCells: 10,      // Подсчёт оставшихся бомбочек разрешён, когда закрытых клеток не больше
+  addBias: 0.75,       // При правке поля: как часто бомбочка добавляется, а не убирается (0…1)
+  tries: 24            // Сколько вариантов правки пробовать в месте застревания
+};
+
 // Случайные числа из криптографического генератора: каждая партия своя и не повторяется
 const rnd = (() => {
   const cr = typeof crypto !== "undefined" && crypto.getRandomValues ? crypto : null, buf = new Uint32Array(64);
@@ -191,12 +222,8 @@ const rnd = (() => {
   };
 })();
 
-// Генератор поля без угадывания. Расстановка проверяется логическим решателем, который видит
-// только то же, что игрок: открытые числа и общий счётчик бомбочек. Если решатель застрял,
-// бомбочки рядом с местом застревания перекладываются, и проверка повторяется. Поле выдаётся,
-// только когда решатель проходит его целиком с первого хода без единой правки.
-// Это функция-генератор: она отдаёт управление (yield), чтобы страница не замирала на больших полях.
-function* genBoard(R, C, M, safe) {
+// Соседи каждой клетки
+function makeGrid(R, C) {
   const N = R * C, NB = new Int32Array(N * 8), NC = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     const r = (i / C) | 0, c = i % C;
@@ -205,9 +232,272 @@ function* genBoard(R, C, M, safe) {
       if ((dr || dc) && rr >= 0 && rr < R && cc >= 0 && cc < C) NB[i * 8 + NC[i]++] = rr * C + cc;
     }
   }
+  return { R, C, N, NB, NC };
+}
+
+// Логический решатель. Видит только открытые числа и общий счётчик бомбочек.
+// reveal = true (генератор): пустая клетка открывается и показывает своё число.
+// reveal = false (подсказка): про пустую клетку известно только, что она пустая.
+// Состояние клетки st: 0 — неизвестно, 1 — открыта с числом, 2 — точно бомбочка, 3 — точно пустая без числа
+function makeSolver(G, adj, M, reveal, mine) {
+  const { N, NB, NC } = G;
+  const st = new Uint8Array(N), inQ = new Uint8Array(N), pd = new Uint8Array(N), inSL = new Uint8Array(N), clv = new Uint8Array(N);
+  const stamp = new Uint32Array(N), lid = new Int32Array(N), cnt = new Uint8Array(N), inSet = new Uint8Array(N);
+  const o = { st, opened: 0, km: 0, unk: N };
+  let q = [], pl = [], sl = [], stp = 0;
+  const UA = [], UB = [], OA = [], OB = [], CM = [];
+
+  function dirt(c) {
+    if (!inQ[c]) { inQ[c] = 1; q.push(c); }
+    if (!pd[c]) { pd[c] = 1; pl.push(c); }
+    clv[c] = 0;                                // Число изменилось: группы с ним проверяются заново
+    if (!inSL[c]) { inSL[c] = 1; sl.push(c); }
+  }
+  function touch(i) { for (let k = 0; k < NC[i]; k++) { const n = NB[i * 8 + k]; if (st[n] === 1) dirt(n); } }
+  function setOpen(i) { if (st[i]) return; st[i] = 1; o.opened++; o.unk--; dirt(i); touch(i); }
+  function safe(i) {
+    if (st[i]) return;
+    if (!reveal) { st[i] = 3; o.unk--; touch(i); return; }
+    const s = [i];                             // Открытие с раскрытием пустых областей, как в игре
+    while (s.length) {
+      const x = s.pop();
+      if (st[x]) continue;
+      if (mine && mine[x]) throw new Error("Решатель ошибся: открыта бомбочка " + x);
+      st[x] = 1; o.opened++; o.unk--; dirt(x); touch(x);
+      if (!adj[x]) for (let k = 0; k < NC[x]; k++) { const n = NB[x * 8 + k]; if (!st[n]) s.push(n); }
+    }
+  }
+  function mark(i) {
+    if (st[i]) return;
+    if (mine && !mine[i]) throw new Error("Решатель ошибся: бомбочка на пустой клетке " + i);
+    st[i] = 2; o.km++; o.unk--; touch(i);
+  }
+  function look(c, out) {                      // Неизвестные соседи числа и сколько бомбочек среди них
+    out.length = 0;
+    let k = 0;
+    for (let j = 0; j < NC[c]; j++) { const n = NB[c * 8 + j]; if (!st[n]) out.push(n); else if (st[n] === 2) k++; }
+    return adj[c] - k;
+  }
+  function act(c) {                            // Открытое число, у которого остались неизвестные соседи
+    if (st[c] !== 1) return false;
+    for (let j = 0; j < NC[c]; j++) if (!st[NB[c * 8 + j]]) return true;
+    return false;
+  }
+
+  // Уровень 1: одно число
+  function simpleAll() {
+    let hit = false;
+    while (q.length) {
+      const c = q.pop(); inQ[c] = 0;
+      if (st[c] !== 1) continue;
+      const need = look(c, UA);
+      if (!UA.length) continue;
+      if (need < 0 || need > UA.length) throw new Error("Противоречие в клетке " + c);
+      if (need === 0) { for (const n of UA.slice()) safe(n); hit = true; }
+      else if (need === UA.length) { for (const n of UA.slice()) mark(n); hit = true; }
+    }
+    return hit;
+  }
+
+  // Уровень 2: два соседних числа (полный разбор пары через общие и собственные клетки)
+  function pair(a, b, dry) {
+    const na = look(a, UA); if (!UA.length) return false;
+    const nb = look(b, UB); if (!UB.length) return false;
+    const s = ++stp, sc = ++stp;
+    for (const x of UA) stamp[x] = s;
+    OB.length = 0; CM.length = 0;
+    for (const x of UB) if (stamp[x] === s) { stamp[x] = sc; CM.push(x); } else OB.push(x);
+    if (!CM.length) return false;
+    OA.length = 0;
+    for (const x of UA) if (stamp[x] !== sc) OA.push(x);
+    const I = CM.length, lo = Math.max(0, na - OA.length, nb - OB.length), hi = Math.min(I, na, nb);
+    if (lo > hi) throw new Error("Противоречие в паре " + a + "/" + b);
+    const S = [], Mn = [];
+    if (OA.length) { if (na - hi === OA.length) Mn.push(...OA); else if (na - lo === 0) S.push(...OA); }
+    if (OB.length) { if (nb - hi === OB.length) Mn.push(...OB); else if (nb - lo === 0) S.push(...OB); }
+    if (lo === I) Mn.push(...CM); else if (hi === 0) S.push(...CM);
+    if (dry) return S.length + Mn.length > 0;
+    for (const x of Mn) mark(x);
+    for (const x of S) safe(x);
+    return S.length + Mn.length > 0;
+  }
+  const PB = [];
+  function partners(a) {                       // Открытые числа, у которых с a есть общие закрытые клетки
+    PB.length = 0;
+    if (st[a] !== 1 || !adj[a]) return PB;
+    const s = ++stp;
+    stamp[a] = s;
+    for (let j = 0; j < NC[a]; j++) {
+      const u = NB[a * 8 + j];
+      if (st[u]) continue;
+      for (let t = 0; t < NC[u]; t++) {
+        const b = NB[u * 8 + t];
+        if (st[b] === 1 && stamp[b] !== s) { stamp[b] = s; PB.push(b); }
+      }
+    }
+    return PB;
+  }
+  function pairs() {
+    const list = pl; pl = [];
+    for (const a of list) pd[a] = 0;
+    let hit = false;
+    for (const a of list) for (const b of partners(a).slice()) if (pair(a, b)) hit = true;
+    return hit;
+  }
+
+  // Полный перебор расстановок для набора клеток и чисел. Для каждой клетки:
+  // бывает ли она бомбочкой (am) и бывает ли пустой (as). null — расстановок нет
+  function solve(cells, cons) {
+    const n = cells.length, m = cons.length, s = ++stp;
+    for (let x = 0; x < n; x++) { stamp[cells[x]] = s; lid[cells[x]] = x; }
+    const need = new Int32Array(m), cu = new Int32Array(m), cm = new Int32Array(m), cc = [];
+    for (let x = 0; x < n; x++) cc.push([]);
+    for (let j = 0; j < m; j++) {
+      const t = cons[j];
+      need[j] = t.need;
+      for (const y of t.cells) { cc[lid[y]].push(j); cu[j]++; }
+    }
+    const val = new Uint8Array(n), am = new Uint8Array(n), as = new Uint8Array(n);
+    let sols = 0;
+    const rec = d => {
+      if (d === n) {
+        sols++;
+        for (let x = 0; x < n; x++) if (val[x]) am[x] = 1; else as[x] = 1;
+        return;
+      }
+      const L = cc[d];
+      for (let v = 0; v < 2; v++) {
+        val[d] = v;
+        let ok = true;
+        for (const j of L) { cm[j] += v; cu[j]--; if (cm[j] > need[j] || cm[j] + cu[j] < need[j]) ok = false; }
+        if (ok) rec(d + 1);
+        for (const j of L) { cm[j] -= v; cu[j]++; }
+      }
+    };
+    rec(0);
+    return sols ? { am, as } : null;
+  }
+
+  // Уровни 3…maxNums: связанная группа из k чисел (соседние числа делят закрытые клетки).
+  // collect = false: найденный вывод применяется сразу. collect = true: выводы собираются в out
+  function* subsets(k, collect, out, only) {
+    const cap = k >= 3 ? DIFF.maxCells : 64;
+    const anchors = only || sl.filter(c => clv[c] < k), seen = new Set(), set = [];
+    let union = 0, work = 0, found = false;
+    const add = c => { look(c, UA); for (const u of UA) if (cnt[u]++ === 0) union++; inSet[c] = 1; set.push(c); };
+    const del = () => { const c = set.pop(); inSet[c] = 0; look(c, UA); for (const u of UA) if (--cnt[u] === 0) union--; };
+    const evaluate = () => {
+      const cells = [], cons = [], s = ++stp;
+      for (const c of set) {
+        const need = look(c, UA), list = UA.slice();
+        for (const u of list) if (stamp[u] !== s) { stamp[u] = s; cells.push(u); }
+        cons.push({ need, cells: list });
+      }
+      const r = solve(cells, cons);
+      if (!r) { if (mine) throw new Error("Нет ни одной расстановки"); return false; }
+      const Mn = [], S = [];
+      for (let x = 0; x < cells.length; x++) { if (!r.am[x]) S.push(cells[x]); else if (!r.as[x]) Mn.push(cells[x]); }
+      if (!Mn.length && !S.length) return false;
+      if (collect) { out.push({ k, nums: set.slice(), mines: Mn, safes: S }); return false; }
+      for (const x of Mn) mark(x);
+      for (const x of S) safe(x);
+      return true;
+    };
+    const grow = () => {
+      if (set.length === k) return evaluate();
+      const cand = [];
+      for (const c of set) {
+        look(c, OA);
+        for (const u of OA) for (let j = 0; j < NC[u]; j++) {
+          const n = NB[u * 8 + j];
+          if (st[n] === 1 && !inSet[n] && cand.indexOf(n) < 0) cand.push(n);
+        }
+      }
+      for (const b of cand) {
+        add(b);
+        if (union <= cap) {
+          const key = set.slice().sort((x, y) => x - y).join(",");
+          if (!seen.has(key)) { seen.add(key); if (grow()) { del(); return true; } }
+        }
+        del();
+      }
+      return false;
+    };
+    for (const a of anchors) {
+      if (!act(a)) { if (!only && !collect) clv[a] = DIFF.maxNums; continue; }
+      add(a);
+      seen.add(String(a));
+      if (union <= cap) found = grow();
+      del();
+      if (found) return true;
+      if (!only && !collect) clv[a] = k;         // Группы с этим числом до размера k проверены, хода нет
+      if (++work % 48 === 0) yield;
+    }
+    return false;
+  }
+  function clearSD() { sl = sl.filter(c => { const keep = clv[c] < DIFF.maxNums && st[c] === 1; if (!keep) inSL[c] = 0; return keep; }); }
+
+  // Подсчёт оставшихся бомбочек, когда закрытых клеток мало.
+  // 0 — ничего, 1 — простой случай (все пустые или все бомбочки), 2 — настоящая задачка на подсчёт
+  function count(collect, out) {
+    if (!o.unk || o.unk > DIFF.countCells) return 0;
+    const U = [];
+    for (let i = 0; i < N; i++) if (!st[i]) U.push(i);
+    const Rm = M - o.km;
+    if (Rm === 0 || Rm === U.length) { for (const i of U) Rm ? mark(i) : safe(i); return 1; }
+    const s = ++stp, cons = [{ need: Rm, cells: U }];
+    for (const u of U) for (let j = 0; j < NC[u]; j++) {
+      const c = NB[u * 8 + j];
+      if (st[c] === 1 && stamp[c] !== s) { stamp[c] = s; const need = look(c, UA); cons.push({ need, cells: UA.slice() }); }
+    }
+    const r = solve(U, cons);
+    if (!r) { if (mine) throw new Error("Противоречие счётчика"); return 0; }
+    const Mn = [], S = [];
+    for (let x = 0; x < U.length; x++) { if (!r.am[x]) S.push(U[x]); else if (!r.as[x]) Mn.push(U[x]); }
+    if (!Mn.length && !S.length) return 0;
+    if (collect) { out.push({ k: 0, nums: cons.slice(1).map(() => -1), mines: Mn, safes: S }); return 2; }
+    for (const x of Mn) mark(x);
+    for (const x of S) safe(x);
+    return 2;
+  }
+
+  // Пробный разбор после правки клетки x (ничего не применяет): вокруг x появился
+  // простой ход (1), только экспертный ход на 3…maxNums чисел (2) или хода нет (0).
+  // Остальное поле не проверяется: до правки там уже не было ни простых, ни экспертных ходов
+  function* probe(x) {
+    const cs = [];
+    for (let k = 0; k < NC[x]; k++) { const c = NB[x * 8 + k]; if (st[c] === 1) cs.push(c); }
+    for (const c of cs) {
+      const need = look(c, UA);
+      if (UA.length && (need === 0 || need === UA.length)) return 1;
+    }
+    for (const a of cs) for (const b of partners(a).slice()) if (pair(a, b, true)) return 1;
+    for (let k = 3; k <= DIFF.maxNums; k++) {
+      const out = [];
+      yield* subsets(k, true, out, cs);
+      if (out.length) return 2;
+    }
+    return 0;
+  }
+
+  return Object.assign(o, { setOpen, safe, mark, touch, look, simpleAll, pairs, pair, subsets, clearSD, count, probe });
+}
+
+// Генератор поля без угадывания с обязательными экспертными задачками.
+// Расстановка проверяется решателем; если он застрял, бомбочки возле места застревания
+// перекладываются, и проверка повторяется. Поле выдаётся, только когда решатель прошёл его
+// целиком с первого хода без единой правки и встретил нужное число экспертных задачек.
+// Функция-генератор отдаёт управление (yield), чтобы страница не замирала на больших полях.
+// В prog пишется ход работы: сколько экспертных задачек уже есть (cur) и сколько нужно (target)
+function* genBoard(R, C, M, safe0, prog) {
+  const G = makeGrid(R, C), { N, NB, NC } = G, t0 = Date.now();
+  const target = Math.min(DIFF.expertMax, Math.ceil(N * DIFF.expertPer100 / 100));
+  prog = prog || {};
+  prog.cur = 0; prog.target = target;
   const mine = new Uint8Array(N), adj = new Uint8Array(N), zone = new Uint8Array(N);
-  zone[safe] = 1;                              // Первый ход: клетка и её соседи всегда пустые
-  if (M <= N - 9) for (let k = 0; k < NC[safe]; k++) zone[NB[safe * 8 + k]] = 1;
+  zone[safe0] = 1;                             // Первый ход: клетка и её соседи всегда пустые
+  if (M <= N - 9) for (let k = 0; k < NC[safe0]; k++) zone[NB[safe0 * 8 + k]] = 1;
+  let best = null;
 
   function setMine(i, v) {
     if (mine[i] === v) return;
@@ -224,301 +514,120 @@ function* genBoard(R, C, M, safe) {
       setMine(t, 1);
     }
   }
-
-  // Состояние решателя: st 0 — неизвестно, 1 — открыта, 2 — точно бомбочка
-  const st = new Uint8Array(N), inQ = new Uint8Array(N), dirty = new Uint8Array(N);
-  const chg = new Uint32Array(N), seen = new Uint32Array(N), stamp = new Uint32Array(N), cst = new Uint32Array(N), lid = new Int32Array(N);
-  let q = [], dl = [], tick = 0, stp = 0, stp2 = 0, opened = 0, km = 0, pert = 0;
-  const UA = [], UB = [], OA = [], OB = [], CM = [];
-
-  function push(c) {
-    if (!inQ[c]) { inQ[c] = 1; q.push(c); }
-    if (!dirty[c]) { dirty[c] = 1; dl.push(c); }
-  }
-  function touch(i) {                          // Клетка изменилась: её открытые соседи перепроверяются
-    chg[i] = ++tick;
-    for (let k = 0; k < NC[i]; k++) { const n = NB[i * 8 + k]; if (st[n] === 1) { chg[n] = tick; push(n); } }
-  }
-  function open(i) {                           // Открытие с раскрытием пустых областей, как в игре
-    const s = [i];
-    while (s.length) {
-      const x = s.pop();
-      if (st[x]) continue;
-      if (mine[x]) throw new Error("Решатель ошибся: открыта бомбочка " + x);
-      st[x] = 1; opened++; push(x); touch(x);
-      if (!adj[x]) for (let k = 0; k < NC[x]; k++) { const n = NB[x * 8 + k]; if (!st[n]) s.push(n); }
-    }
-  }
-  function mark(i) {
-    if (st[i]) return;
-    if (!mine[i]) throw new Error("Решатель ошибся: бомбочка отмечена на пустой клетке " + i);
-    st[i] = 2; km++; touch(i);
-  }
-  function look(c, out) {                      // Неизвестные соседи открытой клетки и сколько бомбочек среди них
-    out.length = 0;
-    let k = 0;
-    for (let j = 0; j < NC[c]; j++) { const n = NB[c * 8 + j]; if (!st[n]) out.push(n); else if (st[n] === 2) k++; }
-    return adj[c] - k;
-  }
-  function hasUnknown(c) {
-    for (let j = 0; j < NC[c]; j++) if (!st[NB[c * 8 + j]]) return true;
-    return false;
-  }
-
-  // Правило 1: число равно числу бомбочек вокруг — остальное пусто; равно числу закрытых — все бомбочки
-  function simple(c) {
-    if (st[c] !== 1) return;
-    const need = look(c, UA);
-    if (!UA.length) return;
-    if (need < 0 || need > UA.length) throw new Error("Противоречие в клетке " + c);
-    if (need === 0) for (const n of UA) open(n);
-    else if (need === UA.length) for (const n of UA) mark(n);
-  }
-
-  // Правило 2: сравнение двух соседних чисел через общие и собственные закрытые клетки
-  function pair(a, b) {
-    const na = look(a, UA); if (!UA.length) return false;
-    const nb = look(b, UB); if (!UB.length) return false;
-    const s = ++stp, sc = ++stp;
-    for (const x of UA) stamp[x] = s;
-    OB.length = 0; CM.length = 0;
-    for (const x of UB) if (stamp[x] === s) { stamp[x] = sc; CM.push(x); } else OB.push(x);
-    if (!CM.length) return false;
-    OA.length = 0;
-    for (const x of UA) if (stamp[x] !== sc) OA.push(x);
-    const I = CM.length, lo = Math.max(0, na - OA.length, nb - OB.length), hi = Math.min(I, na, nb);
-    if (lo > hi) throw new Error("Противоречие в паре " + a + "/" + b);
-    let hit = false;
-    if (OA.length) {
-      if (na - hi === OA.length) { for (const x of OA) mark(x); hit = true; }
-      else if (na - lo === 0) { for (const x of OA) open(x); hit = true; }
-    }
-    if (OB.length) {
-      if (nb - hi === OB.length) { for (const x of OB) mark(x); hit = true; }
-      else if (nb - lo === 0) { for (const x of OB) open(x); hit = true; }
-    }
-    if (lo === I) { for (const x of CM) mark(x); hit = true; }
-    else if (hi === 0) { for (const x of CM) open(x); hit = true; }
-    return hit;
-  }
-  function pairs() {
-    const list = dl;
-    dl = [];
-    for (const a of list) dirty[a] = 0;
-    let hit = false;
-    for (const a of list) {
-      if (st[a] !== 1 || !adj[a]) continue;
-      const ra = (a / C) | 0, ca = a % C;
-      for (let r = Math.max(0, ra - 2); r <= Math.min(R - 1, ra + 2); r++)
-        for (let c = Math.max(0, ca - 2); c <= Math.min(C - 1, ca + 2); c++) {
-          const b = r * C + c;
-          if (b !== a && st[b] === 1 && adj[b] && pair(a, b)) hit = true;
-        }
-    }
-    return hit;
-  }
-
-  // Полный перебор расстановок для набора закрытых клеток и чисел, которые их касаются.
-  // Возвращает для каждой клетки и каждого числа бомбочек в наборе: бывает ли клетка бомбочкой или пустой
-  function enumerate(cells, cons, budget, early) {
-    const n = cells.length, m = cons.length, W = n + 1, s = ++stp;
-    for (let x = 0; x < n; x++) { stamp[cells[x]] = s; lid[cells[x]] = x; }
-    const need = new Int32Array(m), cu = new Int32Array(m), cm = new Int32Array(m), cc = [];
-    for (let x = 0; x < n; x++) cc.push([]);
-    for (let j = 0; j < m; j++) {
-      const c = cons[j];
-      let k = 0;
-      for (let t = 0; t < NC[c]; t++) {
-        const y = NB[c * 8 + t];
-        if (!st[y]) {
-          if (stamp[y] !== s) throw new Error("Клетка вне перебора");
-          cc[lid[y]].push(j); cu[j]++;
-        } else if (st[y] === 2) k++;
-      }
-      need[j] = adj[c] - k;
-    }
-    const val = new Uint8Array(n), mk = new Uint8Array(n * W), sk = new Uint8Array(n * W), ck = new Uint8Array(W);
-    const am = new Uint8Array(n), as = new Uint8Array(n);
-    let nodes = 0, mines = 0, und = n, stop = false, aborted = false, sols = 0;
-    const rec = d => {
-      if (d === n) {
-        sols++; ck[mines] = 1;
-        for (let x = 0; x < n; x++) {
-          if (val[x]) { mk[x * W + mines] = 1; if (!am[x]) { am[x] = 1; if (as[x]) und--; } }
-          else { sk[x * W + mines] = 1; if (!as[x]) { as[x] = 1; if (am[x]) und--; } }
-        }
-        if (early && !und) stop = true;    // Выводов уже не будет: каждая клетка бывала и бомбочкой, и пустой
-        return;
-      }
-      if (++nodes > budget) { stop = aborted = true; return; }
-      const L = cc[d];
-      for (let v = 0; v < 2 && !stop; v++) {
-        val[d] = v; mines += v;
-        let ok = true;
-        for (const j of L) { cm[j] += v; cu[j]--; if (cm[j] > need[j] || cm[j] + cu[j] < need[j]) ok = false; }
-        if (ok) rec(d + 1);
-        for (const j of L) { cm[j] -= v; cu[j]++; }
-        mines -= v;
-      }
-    };
-    rec(0);
-    if (aborted) return null;
-    if (!sols) throw new Error("Нет ни одной расстановки");
-    return { W, mk, sk, ck, am, as };
-  }
-
-  // Правило 3: перебор вариантов в окне вокруг каждого числа на границе
-  function windows() {
-    for (let a = 0; a < N; a++) {
-      if (st[a] !== 1 || !adj[a] || !hasUnknown(a)) continue;
-      const ra = (a / C) | 0, ca = a % C;
-      let mx = 0;
-      for (let r = Math.max(0, ra - 3); r <= Math.min(R - 1, ra + 3); r++)
-        for (let c = Math.max(0, ca - 3); c <= Math.min(C - 1, ca + 3); c++) if (chg[r * C + c] > mx) mx = chg[r * C + c];
-      if (seen[a] >= mx) continue;             // Окно не менялось с прошлой проверки
-      seen[a] = tick;
-      const cons = [], cells = [], s = ++stp;
-      for (let d = 0; d <= 2; d++)             // Сначала ближние к центру числа: так перебор быстрее отсекает тупики
-        for (let r = Math.max(0, ra - d); r <= Math.min(R - 1, ra + d); r++)
-          for (let c = Math.max(0, ca - d); c <= Math.min(C - 1, ca + d); c++) {
-            if (Math.max(Math.abs(r - ra), Math.abs(c - ca)) !== d) continue;
-            const b = r * C + c;
-            if (st[b] !== 1 || !adj[b] || !hasUnknown(b)) continue;
-            cons.push(b);
-            for (let t = 0; t < NC[b]; t++) { const y = NB[b * 8 + t]; if (!st[y] && stamp[y] !== s) { stamp[y] = s; cells.push(y); } }
-          }
-      const res = enumerate(cells, cons, 20000, true);
-      if (!res) continue;
-      let hit = false;
-      for (let x = 0; x < cells.length; x++) {
-        if (!res.am[x]) { open(cells[x]); hit = true; }
-        else if (!res.as[x]) { mark(cells[x]); hit = true; }
-      }
-      if (hit) return true;
-    }
-    return false;
-  }
-
-  // Правило 4: общий счётчик бомбочек. Работает в конце партии, когда граница уже небольшая
-  function global() {
-    const U = N - opened - km, Rm = M - km;
-    if (!U) return false;
-    if (Rm === 0 || Rm === U) {
-      for (let i = 0; i < N; i++) if (!st[i]) { if (Rm) mark(i); else open(i); }
-      return true;
-    }
-    const F = [], inner = [];
+  // Правка в месте застревания: одна закрытая клетка у границы становится бомбочкой
+  // (чаще, см. addBias) или пустой; взамен бомбочка убирается или ставится вдали от границы.
+  // Перебираются несколько вариантов правки; лучший тот, после которого ход есть только экспертный
+  function* perturb(sv) {
+    const st = sv.st, fr = [], far = [];
     for (let i = 0; i < N; i++) {
       if (st[i]) continue;
       let f = false;
       for (let k = 0; k < NC[i]; k++) if (st[NB[i * 8 + k]] === 1) { f = true; break; }
-      (f ? F : inner).push(i);
+      (f ? fr : far).push(i);
     }
-    if (!F.length || F.length > 64) return false;
-    const I = inner.length, s = ++stp, s2 = ++stp2, comps = [];
-    for (const x of F) {
-      if (stamp[x] === s) continue;
-      const cells = [x], cons = [];
-      stamp[x] = s;
-      for (let h = 0; h < cells.length; h++) {
-        const y = cells[h];
-        for (let k = 0; k < NC[y]; k++) {
-          const c = NB[y * 8 + k];
-          if (st[c] !== 1 || cst[c] === s2) continue;
-          cst[c] = s2; cons.push(c);
-          for (let t = 0; t < NC[c]; t++) { const z = NB[c * 8 + t]; if (!st[z] && stamp[z] !== s) { stamp[z] = s; cells.push(z); } }
-        }
-      }
-      comps.push({ cells, cons });
+    if (!fr.length) return false;
+    let easy = null, none = null;
+    for (let t = 0; t < DIFF.tries; t++) {
+      let want = rnd(1000) < DIFF.addBias * 1000 ? 1 : 0, cand = fr.filter(i => mine[i] !== want);
+      if (!cand.length) { want ^= 1; cand = fr.filter(i => mine[i] !== want); }
+      if (!cand.length) return false;
+      const x = cand[rnd(cand.length)];
+      let pool = far.filter(i => mine[i] === want);
+      if (!pool.length) pool = fr.filter(i => i !== x && mine[i] === want);
+      if (!pool.length) continue;
+      const p = pool[rnd(pool.length)];
+      setMine(x, want); setMine(p, want ^ 1);
+      const r = yield* sv.probe(x);
+      if (r === 2) { sv.touch(x); sv.touch(p); return true; }   // Появилась экспертная задачка — берём
+      setMine(x, want ^ 1); setMine(p, want);
+      if (r === 1 && !easy) easy = [x, p, want];
+      if (r === 0 && !none) none = [x, p, want];
     }
-    const res = [];
-    for (const cp of comps) { const r = enumerate(cp.cells, cp.cons, 300000, false); if (!r) return false; res.push(r); }
-    const conv = (A, B) => {
-      const o = new Uint8Array(A.length + B.length - 1);
-      for (let x = 0; x < A.length; x++) if (A[x]) for (let y = 0; y < B.length; y++) if (B[y]) o[x + y] = 1;
-      return o;
-    };
-    const nc = res.length, pre = [Uint8Array.of(1)], suf = [];
-    for (let j = 0; j < nc; j++) pre.push(conv(pre[j], res[j].ck));
-    suf[nc] = Uint8Array.of(1);
-    for (let j = nc - 1; j >= 0; j--) suf[j] = conv(res[j].ck, suf[j + 1]);
-    let hit = false;
-    for (let j = 0; j < nc; j++) {
-      const S = conv(pre[j], suf[j + 1]), r = res[j], cells = comps[j].cells, W = r.W, okk = new Uint8Array(W);
-      for (let k = 0; k < W; k++) for (let x = 0; x < S.length; x++) {
-        const t = Rm - k - x;                  // Сколько бомбочек осталось бы на клетки вдали от чисел
-        if (S[x] && t >= 0 && t <= I) { okk[k] = 1; break; }
-      }
-      for (let x = 0; x < cells.length; x++) {
-        let mm = false, ss = false;
-        for (let k = 0; k < W; k++) if (okk[k]) { if (r.mk[x * W + k]) mm = true; if (r.sk[x * W + k]) ss = true; }
-        if (!mm && !ss) throw new Error("Противоречие счётчика");
-        if (!mm) { open(cells[x]); hit = true; } else if (!ss) { mark(cells[x]); hit = true; }
-      }
-    }
-    if (I) {
-      const T = pre[nc];
-      let any = false, zero = true, full = true;
-      for (let x = 0; x < T.length; x++) {
-        const t = Rm - x;
-        if (!T[x] || t < 0 || t > I) continue;
-        any = true;
-        if (t) zero = false;
-        if (t !== I) full = false;
-      }
-      if (any && (zero || full)) for (const i of inner) if (!st[i]) { if (zero) open(i); else mark(i); hit = true; }
-    }
-    return hit;
-  }
-
-  // Правка расстановки в месте застревания: вокруг случайного числа на границе закрытые клетки
-  // делаются все пустыми или все бомбочками (что дешевле). Бомбочки уходят в дальние закрытые клетки
-  function perturb() {
-    const act = [];
-    for (let i = 0; i < N; i++) if (st[i] === 1 && adj[i] && hasUnknown(i)) act.push(i);
-    if (!act.length) return false;
-    const a = act[rnd(act.length)], need = look(a, UA), u = UA.slice(), s = ++stp;
-    for (const x of u) stamp[x] = s;
-    const iF = [], oF = [], iM = [], oM = [];
-    for (let i = 0; i < N; i++) {
-      if (st[i] || stamp[i] === s) continue;
-      let far = true;
-      for (let k = 0; k < NC[i]; k++) if (st[NB[i * 8 + k]] === 1) { far = false; break; }
-      (mine[i] ? (far ? iM : oM) : (far ? iF : oF)).push(i);
-    }
-    const cClear = need, cFill = u.length - need;
-    const canC = iF.length + oF.length >= cClear, canF = iM.length + oM.length >= cFill;
-    if (!canC && !canF) return false;
-    const clear = canC && (!canF || cClear < cFill || (cClear === cFill && rnd(2) === 0));
-    const take = (A, B) => { const P = A.length ? A : B, j = rnd(P.length), t = P[j]; P[j] = P[P.length - 1]; P.pop(); return t; };
-    for (const x of u) {
-      if (clear && mine[x]) { const t = take(iF, oF); setMine(x, 0); setMine(t, 1); touch(x); touch(t); }
-      else if (!clear && !mine[x]) { const t = take(iM, oM); setMine(x, 1); setMine(t, 0); touch(x); touch(t); }
-    }
+    const pk = easy || none;
+    if (!pk) return false;
+    setMine(pk[0], pk[2]); setMine(pk[1], pk[2] ^ 1);
+    sv.touch(pk[0]); sv.touch(pk[1]);
     return true;
   }
 
+  // Проход решателя. allow — можно править поле при застревании
   function* run(allow) {
-    st.fill(0); inQ.fill(0); dirty.fill(0); chg.fill(0); seen.fill(0);
-    q = []; dl = []; tick = 0; opened = 0; km = 0; pert = 0;
-    open(safe);
+    const sv = makeSolver(G, adj, M, true, mine);
+    let pert = 0, experts = 0;
+    sv.safe(safe0);
     for (;;) {
-      while (q.length) { const c = q.pop(); inQ[c] = 0; simple(c); }
-      if (opened === N - M) return true;
-      if (pairs()) continue;
-      if (windows() || global()) { yield; continue; }
-      if (!allow || !perturb()) return false;
+      sv.simpleAll();
+      if (sv.opened === N - M) return { ok: true, pert, experts };
+      let lvl = 0;
+      if (sv.pairs()) lvl = 2;
+      else {
+        for (let k = 3; k <= DIFF.maxNums && !lvl; k++) if (yield* sv.subsets(k, false)) lvl = k;
+        if (!lvl) { const c = sv.count(false); if (c) lvl = c === 1 ? 1 : 99; }
+      }
+      if (lvl) { if (lvl >= DIFF.minNums) { experts++; yield; } continue; }
+      sv.clearSD();
+      if (!allow || pert > 40 + N / 20 || !(yield* perturb(sv))) return { ok: false, pert, experts };
       pert++;
       yield;
     }
   }
-
-  for (;;) {
-    fill();
+  // Повторные проходы, пока поле не решится целиком без единой правки. null — не вышло
+  function* settle() {
     for (let round = 0; round < 12; round++) {
-      if (!(yield* run(true))) break;          // Тупик без возможности правки: новая расстановка с нуля
-      if (!pert) return { mine, adj };         // Решено целиком одной логикой, без правок
+      const r = yield* run(true);
+      if (!r.ok) return null;
+      if (!r.pert) return r.experts;
     }
+    return null;
+  }
+
+  // Шаг 1: честно решаемое поле
+  let cur = null;
+  while (cur === null) { fill(); cur = yield* settle(); }
+  prog.cur = cur;
+  // Шаг 2: усложнение. Случайная бомбочка переносится на клетку рядом (квадрат 5×5).
+  // Перенос остаётся, если поле по-прежнему решается целиком без единой правки,
+  // а обязательных экспертных задачек не меньше прежнего
+  let iters = 0;
+  while (cur < target && Date.now() - t0 < DIFF.genBudgetMs) {
+    iters++;
+    let m;
+    do m = rnd(N); while (!mine[m]);
+    const rr = ((m / C) | 0) + rnd(5) - 2, cc = m % C + rnd(5) - 2;
+    if (rr < 0 || rr >= R || cc < 0 || cc >= C) continue;
+    const e = rr * C + cc;
+    if (mine[e] || zone[e]) continue;
+    setMine(m, 0); setMine(e, 1);
+    const r = yield* run(false);
+    if (r.ok && r.experts >= cur) prog.cur = cur = r.experts;
+    else { setMine(e, 0); setMine(m, 1); }
+  }
+  return { mine, adj, experts: cur, target };
+}
+
+// Подсказка «Нюх»: по открытым игроком клеткам ищет экспертную задачку (minNums…maxNums чисел или подсчёт).
+// Очевидные выводы решатель делает про себя и подсказкой не показывает. Лапки игрока не учитываются
+function* hintSearch(R, C, adj, M, opn) {
+  const G = makeGrid(R, C), sv = makeSolver(G, adj, M, false, null);
+  for (let i = 0; i < G.N; i++) if (opn[i]) sv.setOpen(i);
+  for (;;) {
+    sv.simpleAll();
+    if (DIFF.minNums > 2 && sv.pairs()) continue;
+    let applied = false;
+    for (let k = 2; k <= DIFF.maxNums; k++) {
+      if (k === 2 && DIFF.minNums > 2) continue;
+      if (k < DIFF.minNums) { if (yield* sv.subsets(k, false)) { applied = true; break; } }
+      else {
+        const out = [];
+        yield* sv.subsets(k, true, out);
+        if (out.length) return { k, cands: out, sv };
+      }
+    }
+    if (applied) continue;
+    const out = [], c = sv.count(true, out);
+    if (c === 1) continue;
+    if (out.length) return { k: 0, cands: out, sv };
+    return { k: -1, cands: [], sv };
   }
 }
 </script>
@@ -542,7 +651,7 @@ const BETTY = '<g class="ear" data-s="normal press win"><path d="M33 46 Q24 12 4
   + '<g data-s="win" stroke="#1a1310" stroke-width="3.2" stroke-linecap="round" fill="none"><path d="M38 57 Q45 48 52 57"/><path d="M68 57 Q75 48 82 57"/></g>'
   + '<path data-s="lose" d="M80 62 Q76 69 80 72 Q84 69 80 62 Z" fill="#7fd3ff"/>'
   + '<g data-s="win" fill="#ff8f8f" opacity=".5"><ellipse cx="36" cy="67" rx="5" ry="3"/><ellipse cx="84" cy="67" rx="5" ry="3"/></g>'
-  + '<ellipse cx="60" cy="71" rx="10" ry="7.2" fill="#161616"/><ellipse cx="56.5" cy="68.5" rx="3" ry="1.7" fill="#5c5c5c"/>'
+  + '<g class="nose"><ellipse cx="60" cy="71" rx="10" ry="7.2" fill="#161616"/><ellipse cx="56.5" cy="68.5" rx="3" ry="1.7" fill="#5c5c5c"/></g>'
   + '<path d="M33 94 Q60 108 87 94 L87 101 Q60 115 33 101 Z" fill="#b0262f"/><circle cx="60" cy="110" r="4" fill="#e3c35a"/>'
   + '<g data-s="normal win"><path d="M49 80 Q54.5 85 60 81 Q65.5 85 71 80" fill="none" stroke="#3a2a22" stroke-width="2" stroke-linecap="round"/><g class="tng"><path d="M54 82 Q53 104 60 106 Q67 104 66 82 Q60 85 54 82 Z" fill="#c9525f"/><path d="M60 85 L60 100" stroke="#a63d4a" stroke-width="1.6" stroke-linecap="round"/></g></g>'
   + '<ellipse data-s="press" cx="60" cy="84" rx="3.8" ry="4.4" fill="#3a2a22"/>'
@@ -565,9 +674,9 @@ function blinker(s) {
 }
 document.querySelectorAll("svg.b").forEach(blinker);
 
-// Размеры поля: строки, столбцы, бомбочки (около 17% клеток)
+// Размеры поля: строки, столбцы, бомбочки (доля бомбочек — DIFF.density в настройках сложности)
 const PRESETS = [];
-for (let n = 10; n <= 100; n += 5) PRESETS.push([n, n, Math.round(n * n * .17)]);
+for (let n = 10; n <= 100; n += 5) PRESETS.push([n, n, Math.round(n * n * DIFF.density)]);
 const MAX = 128, MINS = 20, MINT = 24, GAP = 2, BPAD = 16 + 4, STEP = 1.15;
 
 const WIN_TXT = ["Бэтти молодец!", "Бэтти виляет хвостом!", "Гав! Все бомбочки найдены!", "Бэтти заслужила косточку!", "Нюх не подвёл!", "Лучшая сапёрка района!"];
@@ -575,6 +684,7 @@ const LOSE_TXT = ["Бэтти огорчена…", "Бэтти прижала �
 const pick = a => a[rnd(a.length)];
 
 let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0, genTok = 0, genMsgT = 0;
+let hintCells = [], hintTok = 0, hintBusy = false;
 
 // Сохранение настроек: на file:// и в приватном режиме хранилище может быть недоступно
 const store = {
@@ -591,6 +701,7 @@ function say(t, st) {
 
 function init() {
   genTok++; clearTimeout(genMsgT);             // Отмена генерации прошлой партии, если она ещё идёт
+  hintTok++; hintBusy = false; hintCells = [];
   [R, C, M] = PRESETS[+$("diff").value] || PRESETS[0];
   store.set("side", R);
   clearInterval(timer); secs = 0; state = "ready"; opened = 0; flags = 0;
@@ -602,7 +713,7 @@ function init() {
   el = board.children;
   setFace("normal"); $("msg").textContent = "";
   zoom = (store.get("zoom", {}))[R + "x" + C] || 1;
-  lcd(); fit(true);
+  lcd(); fit(true); syncSniff();
 }
 
 function hms(s) {                              // Время в виде ЧЧ:ММ:СС, предел 99:59:59
@@ -659,21 +770,22 @@ function nb(i, f) {
   }
 }
 
-// Первый ход: поле строится под него так, чтобы дальше всё решалось логикой.
-// Большие поля считаются частями, страница при этом не замирает
+// Первый ход: поле строится под него так, чтобы дальше всё решалось логикой
+// и встречались экспертные задачки. Поле считается частями, страница при этом не замирает
 function begin(i) {
   if (flg[i]) return;
   state = "gen";
-  const tok = ++genTok;
-  let it = genBoard(R, C, M, i);
-  genMsgT = setTimeout(() => { if (tok === genTok) $("msg").textContent = "🐾 Бэтти обнюхивает поле…"; }, 150);
+  const tok = ++genTok, prog = {};
+  let it = genBoard(R, C, M, i, prog), shown = false;
+  const progMsg = () => { $("msg").textContent = "🐾 Бэтти обнюхивает поле… экспертных задачек: " + (prog.cur || 0) + " из " + (prog.target || 0); };
+  genMsgT = setTimeout(() => { if (tok === genTok) { shown = true; progMsg(); } }, 150);
   const step = () => {
     if (tok !== genTok) return;                // Партию уже перезапустили
     const t = performance.now();
     let r;
     try { do r = it.next(); while (!r.done && performance.now() - t < 25); }
-    catch (e) { it = genBoard(R, C, M, i); r = { done: false }; }   // Сбой проверки: заново с другой расстановкой
-    if (!r.done) { setTimeout(step, 0); return; }
+    catch (e) { it = genBoard(R, C, M, i, prog); r = { done: false }; }   // Сбой проверки: заново с другой расстановкой
+    if (!r.done) { if (shown) progMsg(); setTimeout(step, 0); return; }
     clearTimeout(genMsgT); $("msg").textContent = "";
     mine = r.value.mine; adj = r.value.adj;
     start();
@@ -683,6 +795,7 @@ function begin(i) {
 }
 
 function paint(i) {
+  if (hintCells.indexOf(i) >= 0) clearHint();  // Подсказанную клетку открыли или отметили: обводка снимается
   const e = el[i];
   if (opn[i]) {
     e.className = "c o" + (adj[i] ? " n" + adj[i] : "");
@@ -697,6 +810,56 @@ function start() {
   state = "play";
   t0 = Date.now();
   timer = setInterval(() => { const v = ((Date.now() - t0) / 1000) | 0; if (v !== secs) { secs = v; lcd(); } }, 250);
+  syncSniff();
+}
+
+// Подсказка «Нюх»: Бэтти принюхивается и обводит две клетки из экспертной задачки —
+// в одной точно бомбочка, в другой точно пусто (какая где — решает игрок).
+// Если такой пары нет, обводится одна клетка, которую можно вычислить.
+// Очевидные ходы не подсказываются; лапки и косточки игрока не учитываются и не выдаются
+function syncSniff() { $("sniffBtn").disabled = state !== "play" || hintBusy; }
+function clearHint() {
+  const h = hintCells; hintCells = [];
+  for (const i of h) if (el[i]) el[i].classList.remove("hint");
+}
+function sniff() {
+  if (state !== "play" || hintBusy) return;
+  clearHint();
+  hintBusy = true; syncSniff();
+  const tok = ++hintTok, face = document.querySelector("#face svg"), tStart = performance.now();
+  face.classList.remove("sniff"); void face.getBoundingClientRect(); face.classList.add("sniff");
+  let it = hintSearch(R, C, adj, M, opn), res = null;
+  const finish = () => {
+    face.classList.remove("sniff");
+    hintBusy = false; syncSniff();
+    if (tok !== hintTok || state !== "play") return;
+    const free = x => !opn[x] && !flg[x] && !bone[x];
+    const cands = res ? res.cands.map(c => ({ mines: c.mines.filter(free), safes: c.safes.filter(free) })).filter(c => c.mines.length || c.safes.length) : [];
+    if (!cands.length) { $("msg").textContent = res && res.k < 0 ? "🐾 Бэтти: здесь всё видно и без нюха" : "🐾 Бэтти ничего нового не унюхала"; return; }
+    const both = cands.filter(c => c.mines.length && c.safes.length);
+    if (both.length) {
+      const c = pick(both);
+      hintCells = [pick(c.mines), pick(c.safes)];
+      $("msg").textContent = "🐾 Бэтти унюхала: в одной клетке бомбочка, в другой пусто";
+    } else {
+      const c = pick(cands);
+      hintCells = [pick(c.mines.concat(c.safes))];
+      $("msg").textContent = "🐾 Бэтти унюхала клетку, которую можно вычислить";
+    }
+    for (const i of hintCells) el[i].classList.add("hint");
+    el[hintCells[0]].scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+  };
+  const step = () => {
+    if (tok !== hintTok) { face.classList.remove("sniff"); return; }
+    const t = performance.now();
+    let r;
+    try { do r = it.next(); while (!r.done && performance.now() - t < 25); }
+    catch (e) { r = { done: true, value: null }; }
+    if (!r.done) { setTimeout(step, 0); return; }
+    res = r.value;
+    setTimeout(finish, Math.max(0, 1300 - (performance.now() - tStart)));   // Анимация длится не меньше 1,3 с
+  };
+  setTimeout(step, 30);
 }
 
 function reveal(i) {
@@ -735,7 +898,7 @@ function setMark(i, m) {
 function toggle(i) { if (canMark(i)) setMark(i, (markOf(i) + 1) % 3); }          // ПКМ / долгий тап: пусто → 🐾 → 🦴 → пусто
 function tapMark(i, m) { if (canMark(i)) setMark(i, markOf(i) === m ? 0 : m); }   // Панель: нажать ту же метку — снять её
 
-function end() { clearInterval(timer); secs = Math.min(359999, ((Date.now() - t0) / 1000) | 0); lcd(); }
+function end() { clearInterval(timer); secs = Math.min(359999, ((Date.now() - t0) / 1000) | 0); lcd(); hintTok++; hintBusy = false; clearHint(); syncSniff(); document.querySelector("#face svg").classList.remove("sniff"); }
 
 // Звуки синтезируются на лету, без файлов
 let ac = null;
@@ -833,12 +996,14 @@ function unlockAudio() {                       // Разблокировка з�
 ["pointerup", "touchend", "click", "keydown"].forEach(n => addEventListener(n, unlockAudio, true));
 
 $("face").onclick = init;
+$("sniffBtn").onclick = sniff;
 $("zIn").onclick = () => setZoom(STEP);
 $("zOut").onclick = () => setZoom(1 / STEP);
 addEventListener("keydown", e => {
   if (e.target.matches("input,select")) return;
   if (e.key === "+" || e.key === "=") setZoom(STEP);
   else if (e.key === "-" || e.key === "_") setZoom(1 / STEP);
+  else if (e.key === "n" || e.key === "N" || e.key === "т" || e.key === "Т") sniff();
 });
 
 // Список полей и восстановление выбора
