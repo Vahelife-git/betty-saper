@@ -651,8 +651,8 @@ const PRESETS = [];
 for (let n = 10; n <= 100; n += 5) PRESETS.push([n, n, Math.round(n * n * DIFF.density)]);
 const MAX = 128, MINS = 20, MINT = 24, GAP = 2, BPAD = 16 + 4, STEP = 1.15;
 
-const WIN_TXT = ["Бэтти записана в ослики!", "Бэтти виляет пусисьтиком!", "Гав! У Бэтти питульгия!", "Бэтти заслужила паштет!"];
-const LOSE_TXT = ["Бэтти гъюсно...", "Бэтти прижала уши…", "Бэтти злюця", "Бэтти спъяталась…"];
+const WIN_TXT = ["Бэтти записана в ослики!", "Бэтти виляет пусисьтиком!", "Гав! У Бэтти питульгия!", "Бэтти заслужила вкусняшку!"];
+const LOSE_TXT = ["Бэтти записана в дубини!", "Бэтти гъюсно...", "Бэтти злюця", "Бэтти спъяталась…"];
 const pick = a => a[rnd(a.length)];
 
 let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0, genTok = 0, genMsgT = 0;
