@@ -28,8 +28,12 @@ body{padding:16px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));d
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:#1b1b1b;padding:10px 14px;border-radius:12px}
 .bar label{display:flex;flex-direction:column;font-size:12px;gap:2px;align-items:center}
 select,input,button{font:32px consolas,monospace;color:var(--ink);background:#1b1b1b;border:1px solid #1b1b1b;border-radius:8px;padding:6px 10px}
-button{cursor:pointer}button:hover{border-color:var(--ink)}
-button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--pop);outline-offset:2px}
+button{cursor:pointer}
+/* Наведение и нажатие — красная рамка, как у выбранной кнопки панели. Наведение только там, где есть мышь:
+   на телефоне :hover «залипает» после касания и подсвечивал бы кнопку, которую уже отпустили */
+@media (hover:hover){button:hover{border-color:var(--teal)}}
+button:active{border-color:var(--teal);box-shadow:0 0 6px var(--teal)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 
 /* Табло: счётчик, морда, таймер */
 .panel{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;background:#1b1b1b;padding:8px 14px;border-radius:12px;width:min(100%,420px)}
@@ -57,26 +61,25 @@ body:not(.touch) .panel{align-self:flex-start;width:min(calc(var(--vw,100vw) - 3
 .c.f,.c.q,.c.o.m{font-size:calc(var(--s)*.55)}
 #msg{min-height:22px;font-weight:700;text-align:center}
 
-/* Окно итога */
+/* Окна: итог партии и подтверждение новой игры */
 dialog{border:0;border-radius:16px;padding:22px 30px;background:#1b1b1b;color:var(--ink);font-size:22px;text-align:center;box-shadow:0 0 12px var(--teal);max-width:min(90vw,420px)}
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog[open]{animation:pop .18s ease-out}
 dialog svg{width:110px;height:110px;display:block;margin:0 auto 6px}
-#dlgText{white-space:pre-line;margin:0}
-dialog form{margin:16px 0 0}
+dialog p{white-space:pre-line;margin:0}
+dialog form{margin:16px 0 0;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+dialog form button{font:700 20px/1 "Trebuchet MS","Segoe UI",Arial,sans-serif;min-width:110px;padding:12px 18px;border-color:#444;touch-action:manipulation}
+dialog form button.yes{border-color:var(--teal);background:#2c2c2c}
 @keyframes pop{from{transform:scale(.9);opacity:0}}
 
-/* Нижняя панель: инструменты (только касание) и масштаб (везде) */
-#tools{display:flex;position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:6;gap:8px;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));border-radius:0;background:rgba(27,27,27,.78);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);box-shadow:0 -2px 12px rgba(0,0,0,.5);max-width:calc(100vw - 12px)}
-#tools .grp{display:flex;gap:8px}
-#tools .tgrp{display:none}
-body.touch #tools .tgrp{display:flex}
-#tools .sep{width:1px;background:#444;margin:4px 2px;display:none}
-body.touch #tools .sep{display:block}
-#tools button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:72px;min-height:62px;padding:6px 8px;font:28px/1 sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none}
-#tools button span{font:600 12px/1 "Trebuchet MS","Segoe UI",Arial,sans-serif}
+/* Нижняя панель: сплошная полоса на всю ширину экрана, все кнопки одинаковой ширины.
+   Одинакова на iPhone, Android и Windows: иконки нарисованы сами, а не взяты из эмодзи */
+#tools{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:6;gap:4px;margin:0;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));border-radius:0;background:#1b1b1b;box-shadow:0 -1px 0 #333}
+#tools button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:72px;padding:6px 2px;font:30px/1 sans-serif;background:transparent;border-color:transparent;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#tools button span{font:600 13px/1 "Trebuchet MS","Segoe UI",Arial,sans-serif;white-space:nowrap}
 #tools button[aria-pressed="true"]{border-color:var(--teal);background:#2c2c2c;box-shadow:0 0 6px var(--teal)}
-#tools .zm{min-width:56px}
+/* Иконки панели и косточка в клетке */
+.ic{display:inline-block;width:1em;height:1em;vertical-align:-.12em;background:center/contain no-repeat}
 
 /* Морда Бэтти: видны только детали текущего выражения */
 .b [data-s]{display:none}
@@ -104,26 +107,17 @@ body.touch #tools .sep{display:block}
 	#face svg{width:56px;height:56px}
 	.lcd{font-size:22px;min-width:60px}
 	.panel{gap:8px;padding:6px 10px}
-	#tools{gap:6px;padding:6px}
-	#tools .grp{gap:6px}
-	#tools button{min-width:60px;min-height:56px;font-size:24px;padding:4px 6px}
-	#tools .zm{min-width:48px}
 }
 
-@media (max-width:480px){                     /* Телефоны: крупные кнопки на всю ширину экрана */
-	body.touch{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
-	body.touch #tools{left:0;right:0;bottom:0;transform:none;max-width:none;gap:4px;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));border-radius:16px 16px 0 0}
-	body.touch #tools .grp{gap:4px}
-	body.touch #tools .tgrp{flex:3 1 0}         /* Копать, Лапка, Косточка */
-	body.touch #tools .grp:not(.tgrp){flex:2 1 0}   /* Мельче, Крупнее */
-	body.touch #tools .sep{margin:6px 0}
-	body.touch #tools button,body.touch #tools .zm{min-width:0;flex:1 1 0;padding:6px 2px;font-size:30px;min-height:72px;gap:6px}
-	body.touch #tools button span{font-size:13px}
+@media (max-width:480px){                     /* Телефоны */
+	body{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 	.lcd{font-size:19px;padding:6px 7px;min-width:52px}   /* Таймер ЧЧ:ММ:СС помещается рядом с мордой */
+	dialog{padding:20px 22px}
 }
 @media (max-width:360px){                     /* Самые узкие телефоны */
-	body.touch #tools button,body.touch #tools .zm{font-size:26px;min-height:66px}
-	body.touch #tools button span{font-size:11px}
+	#tools button{font-size:26px;min-height:66px}
+	#tools button span{font-size:11px}
+	dialog form button{min-width:96px;padding:12px 12px}
 }
 
 @supports (appearance: base-select){
@@ -164,22 +158,24 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
 <div class="wrap"><div id="board"></div></div>
 
 <div id="tools" role="toolbar" aria-label="Инструменты">
-  <div class="grp tgrp">
-    <button data-tool="open" aria-pressed="true">⛏<span>Копать</span></button>
-    <button data-tool="flag" aria-pressed="false"><i class="paw"></i><span>Лапка</span></button>
-    <button data-tool="q" aria-pressed="false">🦴<span>Косточка</span></button>
-  </div>
-  <div class="sep"></div>
-  <div class="grp">
-    <button class="zm" id="zOut" title="Клетки мельче (клавиша −)">－<span>Мельче</span></button>
-    <button class="zm" id="zIn" title="Клетки крупнее (клавиша +)">＋<span>Крупнее</span></button>
-  </div>
+  <button data-tool="open" aria-pressed="true"><i class="ic" id="digIc"></i><span id="digTx">Носик</span></button>
+  <button data-tool="flag" aria-pressed="false"><i class="paw"></i><span>Лапка</span></button>
+  <button data-tool="q" aria-pressed="false"><i class="ic ic-bone"></i><span>Косточка</span></button>
+  <button id="zOut" title="Клетки мельче (клавиша −)"><i class="ic ic-minus"></i><span>Мельче</span></button>
+  <button id="zIn" title="Клетки крупнее (клавиша +)"><i class="ic ic-plus"></i><span>Крупнее</span></button>
 </div>
 
 <dialog id="dlg">
   <svg class="b act" id="dlgFace" viewBox="0 0 120 120" aria-hidden="true"></svg>
   <p id="dlgText"></p>
   <form method="dialog"><button>Ок</button></form>
+</dialog>
+
+<dialog id="ask">
+  <svg class="b act press" id="askFace" viewBox="0 0 120 120" aria-hidden="true"></svg>
+  <p id="askText">Начать новую игру?
+Бэтти забудет это поле.</p>
+  <form method="dialog"><button value="no" autofocus>Отмена</button><button value="yes" class="yes">Новая игра</button></form>
 </dialog>
 
 <script id="gen">
@@ -630,6 +626,39 @@ const BETTY = '<g class="ear" data-s="normal press win"><path d="M33 46 Q24 12 4
   + '<path data-s="lose" d="M51 88 Q60 81 69 88" fill="none" stroke="#3a2a22" stroke-width="2.2" stroke-linecap="round"/>';
 document.querySelectorAll("svg.b").forEach(s => s.innerHTML = BETTY);
 $("favicon").href = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><style>[data-s]{display:none}[data-s~=normal]{display:inline}</style>' + BETTY + '</svg>');
+// Иконки нарисованы здесь же, чтобы на iPhone, Android и Windows выглядели одинаково (эмодзи везде разные)
+const ICONS = {
+  pick: '<path d="M20 86 L66 36" stroke="#6e4524" stroke-width="13" stroke-linecap="round"/><path d="M20 86 L66 36" stroke="#b07a45" stroke-width="7" stroke-linecap="round"/>'
+    + '<path d="M32 12 Q84 8 92 68 Q72 30 32 12 Z" fill="#d7dbe0" stroke="#8a9097" stroke-width="3" stroke-linejoin="round"/>'
+    + '<rect x="58" y="28" width="15" height="15" rx="3" transform="rotate(-47 65.5 35.5)" fill="#8a9097"/>',
+  shovel: '<g transform="rotate(38 50 50)"><path d="M36 6 H64 V18 H36 Z" fill="#b07a45" stroke="#6e4524" stroke-width="3" stroke-linejoin="round"/>'
+    + '<rect x="45.5" y="17" width="9" height="40" fill="#b07a45" stroke="#6e4524" stroke-width="2"/>'
+    + '<path d="M31 56 H69 V70 Q69 89 50 95 Q31 89 31 70 Z" fill="#d7dbe0" stroke="#8a9097" stroke-width="3" stroke-linejoin="round"/></g>',
+  nose: '<path d="M20 30 Q13 19 20 7 M50 24 V4 M80 30 Q87 19 80 7" stroke="#ff4d4d" stroke-width="6" fill="none" stroke-linecap="round"/>'
+    + '<path d="M50 36 C80 36 95 50 91 66 C87 83 68 94 50 94 C32 94 13 83 9 66 C5 50 20 36 50 36 Z" fill="#262626" stroke="#e8d1b0" stroke-width="5"/>'
+    + '<ellipse cx="34" cy="71" rx="8.5" ry="6" fill="#050505" transform="rotate(22 34 71)"/><ellipse cx="66" cy="71" rx="8.5" ry="6" fill="#050505" transform="rotate(-22 66 71)"/>'
+    + '<ellipse cx="38" cy="50" rx="12" ry="4.5" fill="#7a7a7a"/>',
+  hole: '<g fill="#a86b3c"><circle cx="20" cy="34" r="5.5"/><circle cx="34" cy="18" r="4.5"/><circle cx="50" cy="28" r="4"/><circle cx="66" cy="14" r="4.5"/><circle cx="81" cy="30" r="5.5"/></g>'
+    + '<ellipse cx="50" cy="72" rx="45" ry="20" fill="#8a5a33"/><ellipse cx="50" cy="68" rx="29" ry="10" fill="#24160d"/>',
+  bone: '<g transform="rotate(-35 50 50)"><g fill="#c9b48f"><rect x="20" y="39" width="60" height="22"/><circle cx="21" cy="39" r="14"/><circle cx="21" cy="61" r="14"/><circle cx="79" cy="39" r="14"/><circle cx="79" cy="61" r="14"/></g>'
+    + '<g fill="#f6efe0"><rect x="20" y="42" width="60" height="16"/><circle cx="21" cy="39" r="11"/><circle cx="21" cy="61" r="11"/><circle cx="79" cy="39" r="11"/><circle cx="79" cy="61" r="11"/></g></g>',
+  minus: '<path d="M24 50 H76" stroke="#f6efe0" stroke-width="11" stroke-linecap="round"/>',
+  plus: '<path d="M24 50 H76 M50 24 V76" stroke="#f6efe0" stroke-width="11" stroke-linecap="round"/>'
+};
+// Иконка кнопки «Копать»: pick — кирка, shovel — лопата, nose — нос Бэтти, hole — ямка с землёй
+const DIG_ICON = "nose";
+const DIG_TEXT = { pick: "Копать", shovel: "Копать", nose: "Носик", hole: "Копать" };
+(() => {
+  const css = Object.keys(ICONS).map(k => ".ic-" + k + '{background-image:url("data:image/svg+xml,'
+    + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' + ICONS[k] + "</svg>") + '")}').join("\n");
+  const st = document.createElement("style");
+  st.textContent = css;
+  document.head.appendChild(st);
+  const k = ICONS[DIG_ICON] ? DIG_ICON : "pick";
+  $("digIc").classList.add("ic-" + k);
+  $("digTx").textContent = DIG_TEXT[k] || "Копать";
+})();
+
 function expr(s, st) { s.classList.remove("press", "lose", "win"); if (st !== "normal") s.classList.add(st); }
 function setFace(st) { document.querySelectorAll("svg.b.live").forEach(s => expr(s, st)); }
 
@@ -655,7 +684,7 @@ const WIN_TXT = ["Бэтти записана в ослики!", "Бэтти в�
 const LOSE_TXT = ["Бэтти записана в дубини!", "Бэтти гъюсно...", "Бэтти злюця", "Бэтти спъяталась…"];
 const pick = a => a[rnd(a.length)];
 
-let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0, genTok = 0, genMsgT = 0;
+let R, C, M, mine, adj, opn, flg, bone, el, state, opened, flags, timer, secs, tool = "open", lp = false, lpT = 0, ptype = "mouse", lastI = -1, lastT = 0, t0 = 0, sx = 0, sy = 0, baseS = 0, zoom = 1, lastW = 0, genTok = 0, genMsgT = 0, curK = 0, pendK = -1, hitI = -1, saveT = 0;
 
 // Сохранение настроек: на file:// и в приватном режиме хранилище может быть недоступно
 const store = {
@@ -670,11 +699,59 @@ function say(t, st) {
   if (typeof d.showModal === "function") { if (!d.open) d.showModal(); } else alert(t);   // Старые браузеры без <dialog>
 }
 
+// Сохранение партии: поле, метки, время и итог переживают закрытие вкладки, перезагрузку
+// и выгрузку страницы телефоном. Клетка — одна буква: бомбочка 1, открыта 2, лапка 4, косточка 8
+function saveNow() {
+  clearTimeout(saveT);
+  if (!R) return;
+  let cells = "";
+  if (state === "play" || state === "won" || state === "lost") {
+    const a = [];
+    for (let i = 0; i < R * C; i++) a.push(String.fromCharCode(65 + (mine[i] | opn[i] << 1 | flg[i] << 2 | bone[i] << 3)));
+    cells = a.join("");
+  }
+  // Пока поле строится (gen), бомбочек ещё нет: сохраняется пустое поле, первый ход делается заново
+  store.set("game", { v: 1, R, C, M, state: cells ? state : "ready", cells, hit: hitI, msg: cells ? $("msg").textContent : "" });
+  store.set("secs", cells ? secs : 0);
+}
+function save() { clearTimeout(saveT); saveT = setTimeout(saveNow, 60); }   // Серия ходов (открытие по числу) — одна запись
+
+function restore() {
+  const g = store.get("game", null);
+  if (!g || g.v !== 1) return false;
+  const k = PRESETS.findIndex(p => p[0] === g.R && p[1] === g.C && p[2] === g.M);
+  if (k < 0) return false;                     // Размеры или плотность бомбочек в настройках поменялись
+  const secs0 = +store.get("secs", 0) || 0;
+  $("diff").value = String(k);
+  init();
+  if (g.state === "ready" || typeof g.cells !== "string" || g.cells.length !== R * C) return true;
+  for (let i = 0; i < R * C; i++) {
+    const v = g.cells.charCodeAt(i) - 65;
+    mine[i] = v & 1; opn[i] = v >> 1 & 1; flg[i] = v >> 2 & 1; bone[i] = v >> 3 & 1;
+  }
+  for (let i = 0; i < R * C; i++) if (mine[i]) nb(i, j => adj[j]++);
+  opened = 0; flags = 0;
+  for (let i = 0; i < R * C; i++) { opened += opn[i]; flags += flg[i]; paint(i); }
+  secs = Math.min(359999, Math.max(0, secs0 | 0));
+  hitI = typeof g.hit === "number" ? g.hit : -1;
+  if (g.state === "play") { start(); setFace("normal"); }
+  else {
+    state = g.state === "won" ? "won" : "lost";
+    if (state === "lost") showLost(hitI);
+    setFace(state === "won" ? "win" : "lose");
+    $("msg").textContent = typeof g.msg === "string" ? g.msg : "";
+  }
+  lcd(); saveNow();
+  return true;
+}
+
 function init() {
   genTok++; clearTimeout(genMsgT);             // Отмена генерации прошлой партии, если она ещё идёт
-  [R, C, M] = PRESETS[+$("diff").value] || PRESETS[0];
+  curK = PRESETS[+$("diff").value] ? +$("diff").value : 0;
+  $("diff").value = String(curK);
+  [R, C, M] = PRESETS[curK];
   store.set("side", R);
-  clearInterval(timer); secs = 0; state = "ready"; opened = 0; flags = 0;
+  clearInterval(timer); secs = 0; state = "ready"; opened = 0; flags = 0; hitI = -1;
   mine = new Uint8Array(R * C); adj = new Uint8Array(R * C); opn = new Uint8Array(R * C); flg = new Uint8Array(R * C); bone = new Uint8Array(R * C);
   board.style.setProperty("--r", R); board.style.setProperty("--c", C);
   let h = "";
@@ -684,6 +761,7 @@ function init() {
   setFace("normal"); $("msg").textContent = "";
   zoom = (store.get("zoom", {}))[R + "x" + C] || 1;
   lcd(); fit(true);
+  saveNow();
 }
 
 function hms(s) {                              // Время в виде ЧЧ:ММ:СС, предел 99:59:59
@@ -771,14 +849,15 @@ function paint(i) {
     e.textContent = adj[i] || "";
   } else {
     e.className = "c" + (flg[i] ? " f" : bone[i] ? " q" : "");
-    if (flg[i]) e.innerHTML = '<i class="paw"></i>'; else e.textContent = bone[i] ? "🦴" : "";
+    if (flg[i]) e.innerHTML = '<i class="paw"></i>'; else if (bone[i]) e.innerHTML = '<i class="ic ic-bone"></i>'; else e.textContent = "";
   }
 }
 
-function start() {
+function start() {                             // Отсчёт идёт от уже набранного времени: после возврата в игру он продолжается
   state = "play";
-  t0 = Date.now();
-  timer = setInterval(() => { const v = ((Date.now() - t0) / 1000) | 0; if (v !== secs) { secs = v; lcd(); } }, 250);
+  t0 = Date.now() - secs * 1000;
+  clearInterval(timer);
+  timer = setInterval(() => { const v = ((Date.now() - t0) / 1000) | 0; if (v !== secs) { secs = v; lcd(); store.set("secs", secs); } }, 250);
 }
 
 function reveal(i) {
@@ -792,7 +871,7 @@ function reveal(i) {
     opn[k] = 1; bone[k] = 0; opened++; paint(k);
     if (!adj[k]) nb(k, j => { if (!opn[j] && !flg[j]) st.push(j); });
   }
-  if (opened === R * C - M) win();
+  if (opened === R * C - M) win(); else save();
 }
 
 function chord(i) {
@@ -812,7 +891,7 @@ function canMark(i) {
 }
 function setMark(i, m) {
   flags -= flg[i]; flg[i] = m === 1 ? 1 : 0; bone[i] = m === 2 ? 1 : 0; flags += flg[i];
-  paint(i); lcd();
+  paint(i); lcd(); save();
 }
 function toggle(i) { if (canMark(i)) setMark(i, (markOf(i) + 1) % 3); }          // ПКМ / долгий тап: пусто → 🐾 → 🦴 → пусто
 function tapMark(i, m) { if (canMark(i)) setMark(i, markOf(i) === m ? 0 : m); }   // Панель: нажать ту же метку — снять её
@@ -854,15 +933,19 @@ function soundLose() {                                                          
   chain([o, g, a.destination]); o.start(t); l.start(t); o.stop(t + .95); l.stop(t + .95);
 }
 
-function lose(hit) {
-  state = "lost"; end();
+function showLost(hit) {                       // Все бомбочки и ошибочные лапки на проигранном поле
   for (let i = 0; i < R * C; i++) {
     if (mine[i] && !flg[i]) { el[i].className = "c o m"; el[i].textContent = "💣"; }
     else if (!mine[i] && flg[i]) { el[i].className = "c o m"; el[i].textContent = "❌"; }
   }
-  el[hit].classList.add("boom");
+  if (hit >= 0 && hit < R * C) el[hit].classList.add("boom");
+}
+function lose(hit) {
+  state = "lost"; end(); hitI = hit;
+  showLost(hit);
   const t = pick(LOSE_TXT);
   setFace("lose"); $("msg").textContent = "💥 Бомбочка взорвалась. " + t;
+  saveNow();
   soundLose(); if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
   say("💥 Бомбочка взорвалась.\n" + t, "lose");
 }
@@ -873,6 +956,7 @@ function win() {
   flags = M; lcd();
   const t = pick(WIN_TXT);
   setFace("win"); $("msg").textContent = "🏆 Бомбочки найдены за " + hms(secs) + ". " + t;
+  saveNow();
   soundWin();
   say("🏆 Бомбочки найдены за " + hms(secs) + ".\n" + t, "win");
 }
@@ -888,8 +972,33 @@ function lpToggle(i) {                         // Единая точка для
   if (lp) return;                              // Метка в этом касании уже поставлена (таймер + нативный contextmenu)
   lp = true; clearTimeout(lpT);
   toggle(i);
-  if (navigator.vibrate) navigator.vibrate(20);
+  haptic(40);
 }
+
+// Тактильный отклик на касание кнопок и клеток.
+// Android: Vibration API. iPhone: Safari его не поддерживает, но с iOS 18 щёлкает «таптик» при переключении
+// системного переключателя <input switch> — он спрятан за краем экрана и нажимается программно
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const tick = (() => {
+  if (!IOS) return null;
+  const lb = document.createElement("label"), inp = document.createElement("input");
+  inp.type = "checkbox"; inp.setAttribute("switch", ""); inp.tabIndex = -1;
+  lb.setAttribute("aria-hidden", "true");
+  lb.style.cssText = "position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none";
+  lb.appendChild(inp); document.body.appendChild(lb);
+  return lb;
+})();
+function haptic(ms) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(ms || 30);
+    else if (tick) tick.click();               // Срабатывает только внутри касания пользователя
+  } catch (e) {}
+}
+// Любая кнопка, список полей и клетка поля. Фаза перехвата — до того, как клик обработает сама кнопка
+addEventListener("click", e => {
+  const t = e.target;
+  if (t && t.closest && t.closest("button,select,#board .c")) haptic(30);
+}, true);
 board.addEventListener("contextmenu", e => {
   e.preventDefault();
   const t = e.target.closest(".c"); if (!t) return;
@@ -914,7 +1023,27 @@ function unlockAudio() {                       // Разблокировка з�
 }
 ["pointerup", "touchend", "click", "keydown"].forEach(n => addEventListener(n, unlockAudio, true));
 
-$("face").onclick = init;
+// Новая игра — только после подтверждения в окне с Бэтти: с кнопки рестарта или при смене размера поля.
+// k — номер нового размера поля; без него — тот же размер
+function askRestart(k) {
+  const d = $("ask");
+  pendK = typeof k === "number" ? k : curK;
+  const p = PRESETS[pendK];
+  const q = pendK === curK ? "Начать новую игру?" : "Начать новую игру на поле " + p[0] + "×" + p[1] + "?";
+  if (typeof d.showModal !== "function") { finishAsk(confirm(q)); return; }   // Старые браузеры без <dialog>
+  if (d.open) return;
+  if ($("dlg").open) $("dlg").close();
+  $("askText").textContent = q + "\nБэтти забудет это поле.";
+  d.returnValue = "";                          // Esc и клик мимо окна — это «Отмена»
+  d.showModal();
+}
+function finishAsk(yes) {
+  if (yes) { $("diff").value = String(pendK); init(); }
+  else $("diff").value = String(curK);         // Отмена: в списке остаётся размер текущей партии
+  pendK = -1;
+}
+$("ask").addEventListener("close", () => finishAsk($("ask").returnValue === "yes"));
+$("face").onclick = () => askRestart();
 $("zIn").onclick = () => setZoom(STEP);
 $("zOut").onclick = () => setZoom(1 / STEP);
 addEventListener("keydown", e => {
@@ -926,9 +1055,20 @@ addEventListener("keydown", e => {
 // Список полей и восстановление выбора
 $("diff").innerHTML = PRESETS.map((p, k) => '<option value="' + k + '">' + p[0] + "×" + p[1] + " / " + p[2] + "</option>").join("");
 $("diff").value = String(Math.max(0, PRESETS.findIndex(p => p[0] === store.get("side", 10))));
-$("diff").onchange = init;
+$("diff").onchange = () => {
+  const k = +$("diff").value;
+  if (k === curK) return;
+  if (state === "ready") init();                // Ни одного хода ещё не было — терять нечего
+  else askRestart(k);
+};
 
-$("dlg").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+// Клик мимо окна закрывает его. Проверяются координаты: клик по полям внутри окна тоже приходит
+// с target = dialog, и раньше такое окно закрывалось
+document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => {
+  if (e.target !== d) return;
+  const r = d.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) d.close();
+}));
 function setVW() { document.documentElement.style.setProperty("--vw", document.documentElement.clientWidth + "px"); }   // Ширина окна без полосы прокрутки
 addEventListener("resize", () => { setVW(); fit(false); });
 setVW();
@@ -938,14 +1078,22 @@ function setTool(t) {
   document.querySelectorAll("#tools [data-tool]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tool === t));
 }
 function syncUI() {
-  document.body.classList.toggle("touch", touchUI.matches);
-  if (!touchUI.matches) setTool("open");       // Без панели инструмент всегда «копать»
+  document.body.classList.toggle("touch", touchUI.matches);   // Панель одна и та же везде; класс меняет только прокрутку поля
   fit(true);
 }
 document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
 if (touchUI.addEventListener) touchUI.addEventListener("change", syncUI); else if (touchUI.addListener) touchUI.addListener(syncUI);   // Старый Safari
 document.body.classList.toggle("touch", touchUI.matches);
-init();
+if (!restore()) init();
+
+// Свёрнутая или закрытая игра: время на паузе, партия записана. При возврате отсчёт продолжается
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (state === "play") { clearInterval(timer); secs = Math.min(359999, ((Date.now() - t0) / 1000) | 0); }
+    saveNow();
+  } else if (state === "play") { start(); lcd(); }
+});
+addEventListener("pagehide", saveNow);
 
 // Офлайн-режим для версии на GitHub Pages; при открытии файлом не используется
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
