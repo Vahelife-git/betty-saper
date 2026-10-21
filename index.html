@@ -1137,8 +1137,28 @@ document.addEventListener("visibilitychange", () => {
 });
 addEventListener("pagehide", saveNow);
 
-// Офлайн-режим для версии на GitHub Pages; при открытии файлом не используется
-if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+// Офлайн-режим и обновления для версии на GitHub Pages; при открытии файлом не используется
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(r => r.update()).catch(() => {});
+}
+
+// Свежая версия при возврате в игру. iPhone и Android часто не перезапускают PWA, а показывают её из памяти,
+// поэтому при каждом возврате (не чаще раза в минуту) сверяется метка файла на сервере (ETag).
+// Изменилась — страница перезагружается; партия сохранена и продолжится с того же места
+let verTag = null, verAt = 0;
+async function checkVersion() {
+  if (location.protocol !== "https:" || !navigator.onLine) return;
+  verAt = Date.now();
+  try {
+    const r = await fetch(location.pathname, { method: "HEAD", cache: "no-store" });
+    const tag = r.ok && (r.headers.get("etag") || r.headers.get("last-modified"));
+    if (!tag) return;
+    if (verTag === null) { verTag = tag; return; }   // Первая проверка запоминает текущую версию
+    if (tag !== verTag && state !== "gen" && !$("ask").open) { saveNow(); location.reload(); }
+  } catch (e) {}
+}
+checkVersion();
+document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - verAt > 60000) checkVersion(); });
 </script>
 </body>
 </html>
