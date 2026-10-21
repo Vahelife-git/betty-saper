@@ -972,7 +972,7 @@ function lpToggle(i) {                         // Единая точка для
   if (lp) return;                              // Метка в этом касании уже поставлена (таймер + нативный contextmenu)
   lp = true; clearTimeout(lpT);
   toggle(i);
-  haptic(40);
+  haptic(70);
 }
 
 // Тактильный отклик на касание кнопок и клеток.
@@ -990,14 +990,14 @@ const tick = (() => {
 })();
 function haptic(ms) {
   try {
-    if (navigator.vibrate) navigator.vibrate(ms || 30);
+    if (navigator.vibrate) navigator.vibrate(ms || 50);
     else if (tick) tick.click();               // Срабатывает только внутри касания пользователя
   } catch (e) {}
 }
 // Любая кнопка, список полей и клетка поля. Фаза перехвата — до того, как клик обработает сама кнопка
 addEventListener("click", e => {
   const t = e.target;
-  if (t && t.closest && t.closest("button,select,#board .c")) haptic(30);
+  if (t && t.closest && t.closest("button,select,#board .c")) haptic(50);   // Короче ~40 мс мотор многих телефонов не успевает раскрутиться
 }, true);
 board.addEventListener("contextmenu", e => {
   e.preventDefault();
