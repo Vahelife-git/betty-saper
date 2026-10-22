@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" id="favicon" href="data:,">
 <style>
-:root{--open:#000;--ink:#f6efe0;--pop:#ff7a59;--teal:#ff4d4d;--collar:#b0262f;--cell:#1b1b1b}
+:root{--open:#000;--ink:#f6efe0;--teal:#ff4d4d;--collar:#b0262f;--cell:#1b1b1b}
 *{box-sizing:border-box}
 html,body{margin:0;background:#000;color:var(--ink);font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif;-webkit-tap-highlight-color:transparent}
 body{padding:16px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:14px}
@@ -23,17 +23,17 @@ body{padding:16px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));d
 .hdr svg{width:clamp(84px,18vw,150px);height:auto;filter:drop-shadow(0 0 12px var(--teal))}
 .hdr h1{margin:0;font-size:clamp(28px,6vw,56px);line-height:1.05;font-weight:900;letter-spacing:.01em;color:var(--ink);text-shadow:3px 3px 0 var(--collar),6px 6px 0 rgba(0,0,0,.35)}
 .hdr h1 small{display:block;margin-top:6px;font-size:.6em;font-weight:700;color:var(--teal);text-shadow:none;letter-spacing:.04em}
-.paws{font-size:32px;opacity:.7;margin-bottom:0;user-select:none}
+.paws{font-size:32px;opacity:.7;user-select:none}
 
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:#1b1b1b;padding:10px 14px;border-radius:12px}
 .bar label{display:flex;flex-direction:column;font-size:12px;gap:2px;align-items:center}
-select,input,button{font:32px consolas,monospace;color:var(--ink);background:#1b1b1b;border:1px solid #1b1b1b;border-radius:8px;padding:6px 10px}
+select,button{font:32px consolas,monospace;color:var(--ink);background:#1b1b1b;border:1px solid #1b1b1b;border-radius:8px;padding:6px 10px}
 button{cursor:pointer}
 /* Наведение и нажатие — красная рамка, как у выбранной кнопки панели. Наведение только там, где есть мышь:
    на телефоне :hover «залипает» после касания и подсвечивал бы кнопку, которую уже отпустили */
 @media (hover:hover){button:hover{border-color:var(--teal)}}
 button:active{border-color:var(--teal);box-shadow:0 0 6px var(--teal)}
-button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+button:focus-visible,select:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 
 /* Табло: счётчик, морда, таймер */
 .panel{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;background:#1b1b1b;padding:8px 14px;border-radius:12px;width:min(100%,420px)}
@@ -78,7 +78,7 @@ dialog form button.yes{border-color:var(--teal);background:#2c2c2c}
 #tools button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:72px;padding:6px 2px;font:30px/1 sans-serif;background:transparent;border-color:transparent;touch-action:manipulation;-webkit-user-select:none;user-select:none}
 #tools button span{font:600 13px/1 "Trebuchet MS","Segoe UI",Arial,sans-serif;white-space:nowrap}
 #tools button[aria-pressed="true"]{border-color:var(--teal);background:#2c2c2c;box-shadow:0 0 6px var(--teal)}
-/* Иконки панели и косточка в клетке */
+/* Иконки: рисуются в скрипте (ICONS), а не берутся из эмодзи — на iPhone, Android и Windows эмодзи разные */
 .ic{display:inline-block;width:1em;height:1em;vertical-align:-.12em;background:center/contain no-repeat}
 .ic.ic-tnt{width:1.3em;height:1.3em;margin:-.15em}     /* Шашка крупнее, место в строке то же */
 .c .ic.ic-xpaw{position:absolute;right:4%;top:4%;width:40%;height:40%;margin:0}   /* Маленькая перечёркнутая лапка в углу */
@@ -106,7 +106,7 @@ dialog form button.yes{border-color:var(--teal);background:#2c2c2c}
 	.hdr h1{font-size:clamp(22px,min(6vw,5.5vh),44px)}
 }
 @media (max-width:600px){
-	select,input,button{font-size:20px}
+	select,button{font-size:20px}
 	#face svg{width:56px;height:56px}
 	.lcd{font-size:22px;min-width:60px}
 	.panel{gap:8px;padding:6px 10px}
@@ -129,9 +129,7 @@ dialog form button.yes{border-color:var(--teal);background:#2c2c2c}
 	option{padding:6px 10px;color:var(--ink)}
 	option:hover, option:checked{background:var(--collar);color:#fff}
 }
-/* Красная лапка рисуется сама, а не берётся из эмодзи: на iPhone эмодзи 🐾 серая */
-.paw{display:inline-block;width:1em;height:1em;vertical-align:-.12em;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='%23ff4d4d'%3E%3Cellipse cx='19' cy='44' rx='10' ry='13' transform='rotate(-25 19 44)'/%3E%3Cellipse cx='38' cy='24' rx='10' ry='14' transform='rotate(-8 38 24)'/%3E%3Cellipse cx='62' cy='24' rx='10' ry='14' transform='rotate(8 62 24)'/%3E%3Cellipse cx='81' cy='44' rx='10' ry='13' transform='rotate(25 81 44)'/%3E%3Cpath d='M50 46C38 46 24 62 22 76C20 90 34 94 50 88C66 94 80 90 78 76C76 62 62 46 50 46Z'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
-.paws .paw{margin:0 9px}
+.paws .ic{margin:0 9px}
 h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
 </style>
 </head>
@@ -141,7 +139,7 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
   <svg class="b live" viewBox="0 0 120 120" aria-hidden="true"></svg>
   <h1>Бэтти Питухунд<small>ищет бомбочки <i class="ic ic-tnt"></i></small></h1>
 </header>
-<div class="paws" aria-hidden="true"><i class="paw"></i><i class="paw"></i><i class="paw"></i><i class="paw"></i><i class="paw"></i></div>
+<div class="paws" aria-hidden="true"><i class="ic ic-paw"></i><i class="ic ic-paw"></i><i class="ic ic-paw"></i><i class="ic ic-paw"></i><i class="ic ic-paw"></i></div>
 
 <h2>От Гномика с любовью ❤️</h2>
 
@@ -161,8 +159,8 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
 <div class="wrap"><div id="board"></div></div>
 
 <div id="tools" role="toolbar" aria-label="Инструменты">
-  <button data-tool="open" aria-pressed="true"><i class="ic" id="digIc"></i><span id="digTx">Носик</span></button>
-  <button data-tool="flag" aria-pressed="false"><i class="paw"></i><span>Лапка</span></button>
+  <button data-tool="open" aria-pressed="true"><i class="ic ic-nose"></i><span>Носик</span></button>
+  <button data-tool="flag" aria-pressed="false"><i class="ic ic-paw"></i><span>Лапка</span></button>
   <button data-tool="q" aria-pressed="false"><i class="ic ic-bone"></i><span>Косточка</span></button>
   <button id="zOut" title="Клетки мельче (клавиша −)"><i class="ic ic-minus"></i><span>Мельче</span></button>
   <button id="zIn" title="Клетки крупнее (клавиша +)"><i class="ic ic-plus"></i><span>Крупнее</span></button>
@@ -181,7 +179,7 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
   <form method="dialog"><button value="no" autofocus>Отмена</button><button value="yes" class="yes">Новая игра</button></form>
 </dialog>
 
-<script id="gen">
+<script>
 "use strict";
 // ===== Настройки сложности: менять только здесь =====
 // Сложнее: больше density, expertPer100, expertMax, genBudgetMs.
@@ -231,14 +229,23 @@ function makeGrid(R, C) {
   return { R, C, N, NB, NC };
 }
 
+// Рабочие массивы решателя: создаются один раз на поле и очищаются перед каждым проходом.
+// Раньше каждый проход заводил их заново (на поле 100×100 ~150 КБ), и сборщик мусора не успевал
+function makeWork(N) {
+  return {
+    st: new Uint8Array(N), inQ: new Uint8Array(N), pd: new Uint8Array(N), inSL: new Uint8Array(N), clv: new Uint8Array(N),
+    stamp: new Uint32Array(N), lid: new Int32Array(N), cnt: new Uint8Array(N), inSet: new Uint8Array(N)
+  };
+}
+
 // Логический решатель. Видит только открытые числа и общий счётчик бомбочек.
-// reveal = true (генератор): пустая клетка открывается и показывает своё число.
-// reveal = false (подсказка): про пустую клетку известно только, что она пустая.
-// Состояние клетки st: 0 — неизвестно, 1 — открыта с числом, 2 — точно бомбочка, 3 — точно пустая без числа
-function makeSolver(G, adj, M, reveal, mine) {
+// Пустая клетка открывается и показывает своё число, пустые области раскрываются, как в игре.
+// mine — настоящая расстановка: по ней решатель проверяет себя (ошибка — исключение, поле строится заново).
+// Состояние клетки st: 0 — неизвестно, 1 — открыта с числом, 2 — точно бомбочка
+function makeSolver(G, adj, M, mine, W) {
   const { N, NB, NC } = G;
-  const st = new Uint8Array(N), inQ = new Uint8Array(N), pd = new Uint8Array(N), inSL = new Uint8Array(N), clv = new Uint8Array(N);
-  const stamp = new Uint32Array(N), lid = new Int32Array(N), cnt = new Uint8Array(N), inSet = new Uint8Array(N);
+  const { st, inQ, pd, inSL, clv, stamp, lid, cnt, inSet } = W;
+  st.fill(0); inQ.fill(0); pd.fill(0); inSL.fill(0); clv.fill(0); stamp.fill(0); cnt.fill(0); inSet.fill(0);   // lid всегда пишется до чтения
   const o = { st, opened: 0, km: 0, unk: N };
   let q = [], pl = [], sl = [], stp = 0;
   const UA = [], UB = [], OA = [], OB = [], CM = [];
@@ -250,22 +257,20 @@ function makeSolver(G, adj, M, reveal, mine) {
     if (!inSL[c]) { inSL[c] = 1; sl.push(c); }
   }
   function touch(i) { for (let k = 0; k < NC[i]; k++) { const n = NB[i * 8 + k]; if (st[n] === 1) dirt(n); } }
-  function setOpen(i) { if (st[i]) return; st[i] = 1; o.opened++; o.unk--; dirt(i); touch(i); }
   function safe(i) {
     if (st[i]) return;
-    if (!reveal) { st[i] = 3; o.unk--; touch(i); return; }
     const s = [i];                             // Открытие с раскрытием пустых областей, как в игре
     while (s.length) {
       const x = s.pop();
       if (st[x]) continue;
-      if (mine && mine[x]) throw new Error("Решатель ошибся: открыта бомбочка " + x);
+      if (mine[x]) throw new Error("Решатель ошибся: открыта бомбочка " + x);
       st[x] = 1; o.opened++; o.unk--; dirt(x); touch(x);
       if (!adj[x]) for (let k = 0; k < NC[x]; k++) { const n = NB[x * 8 + k]; if (!st[n]) s.push(n); }
     }
   }
   function mark(i) {
     if (st[i]) return;
-    if (mine && !mine[i]) throw new Error("Решатель ошибся: бомбочка на пустой клетке " + i);
+    if (!mine[i]) throw new Error("Решатель ошибся: бомбочка на пустой клетке " + i);
     st[i] = 2; o.km++; o.unk--; touch(i);
   }
   function look(c, out) {                      // Неизвестные соседи числа и сколько бомбочек среди них
@@ -378,7 +383,7 @@ function makeSolver(G, adj, M, reveal, mine) {
   // collect = false: найденный вывод применяется сразу. collect = true: выводы собираются в out
   function* subsets(k, collect, out, only) {
     const cap = k >= 3 ? DIFF.maxCells : 64;
-    const anchors = only || sl.filter(c => clv[c] < k), seen = new Set(), set = [];
+    const anchors = only || sl.filter(c => clv[c] < k), seen = new Set(), set = [], srt = [];
     let union = 0, work = 0, found = false;
     const add = c => { look(c, UA); for (const u of UA) if (cnt[u]++ === 0) union++; inSet[c] = 1; set.push(c); };
     const del = () => { const c = set.pop(); inSet[c] = 0; look(c, UA); for (const u of UA) if (--cnt[u] === 0) union--; };
@@ -390,7 +395,7 @@ function makeSolver(G, adj, M, reveal, mine) {
         cons.push({ need, cells: list });
       }
       const r = solve(cells, cons);
-      if (!r) { if (mine) throw new Error("Нет ни одной расстановки"); return false; }
+      if (!r) throw new Error("Нет ни одной расстановки");
       const Mn = [], S = [];
       for (let x = 0; x < cells.length; x++) { if (!r.am[x]) S.push(cells[x]); else if (!r.as[x]) Mn.push(cells[x]); }
       if (!Mn.length && !S.length) return false;
@@ -399,20 +404,25 @@ function makeSolver(G, adj, M, reveal, mine) {
       for (const x of S) safe(x);
       return true;
     };
+    const key_ = () => {                       // Ключ набора чисел без учёта порядка: те же числа по возрастанию
+      srt.length = 0;
+      for (const c of set) { let j = srt.length; srt.push(c); while (j > 0 && srt[j - 1] > c) { srt[j] = srt[j - 1]; j--; } srt[j] = c; }
+      return srt.join(",");
+    };
     const grow = () => {
       if (set.length === k) return evaluate();
-      const cand = [];
+      const cand = [], s = ++stp;              // Соседние числа-кандидаты, каждое один раз, в порядке нахождения
       for (const c of set) {
         look(c, OA);
         for (const u of OA) for (let j = 0; j < NC[u]; j++) {
           const n = NB[u * 8 + j];
-          if (st[n] === 1 && !inSet[n] && cand.indexOf(n) < 0) cand.push(n);
+          if (st[n] === 1 && !inSet[n] && stamp[n] !== s) { stamp[n] = s; cand.push(n); }
         }
       }
       for (const b of cand) {
         add(b);
         if (union <= cap) {
-          const key = set.slice().sort((x, y) => x - y).join(",");
+          const key = key_();
           if (!seen.has(key)) { seen.add(key); if (grow()) { del(); return true; } }
         }
         del();
@@ -447,7 +457,7 @@ function makeSolver(G, adj, M, reveal, mine) {
       if (st[c] === 1 && stamp[c] !== s) { stamp[c] = s; const need = look(c, UA); cons.push({ need, cells: UA.slice() }); }
     }
     const r = solve(U, cons);
-    if (!r) { if (mine) throw new Error("Противоречие счётчика"); return 0; }
+    if (!r) throw new Error("Противоречие счётчика");
     const Mn = [], S = [];
     for (let x = 0; x < U.length; x++) { if (!r.am[x]) S.push(U[x]); else if (!r.as[x]) Mn.push(U[x]); }
     if (!Mn.length && !S.length) return 0;
@@ -476,24 +486,20 @@ function makeSolver(G, adj, M, reveal, mine) {
     return 0;
   }
 
-  return Object.assign(o, { setOpen, safe, mark, touch, look, simpleAll, pairs, pair, subsets, clearSD, count, probe });
+  return Object.assign(o, { safe, touch, simpleAll, pairs, subsets, clearSD, count, probe });
 }
 
 // Генератор поля без угадывания с обязательными экспертными задачками.
 // Расстановка проверяется решателем; если он застрял, бомбочки возле места застревания
 // перекладываются, и проверка повторяется. Поле выдаётся, только когда решатель прошёл его
 // целиком с первого хода без единой правки и встретил нужное число экспертных задачек.
-// Функция-генератор отдаёт управление (yield), чтобы страница не замирала на больших полях.
-// В prog пишется ход работы: сколько экспертных задачек уже есть (cur) и сколько нужно (target)
-function* genBoard(R, C, M, safe0, prog) {
+// Функция-генератор отдаёт управление (yield), чтобы страница не замирала на больших полях
+function* genBoard(R, C, M, safe0) {
   const G = makeGrid(R, C), { N, NB, NC } = G, t0 = Date.now();
   const target = Math.min(DIFF.expertMax, Math.ceil(N * DIFF.expertPer100 / 100));
-  prog = prog || {};
-  prog.cur = 0; prog.target = target;
-  const mine = new Uint8Array(N), adj = new Uint8Array(N), zone = new Uint8Array(N);
+  const mine = new Uint8Array(N), adj = new Uint8Array(N), zone = new Uint8Array(N), W = makeWork(N);
   zone[safe0] = 1;                             // Первый ход: клетка и её соседи всегда пустые
   if (M <= N - 9) for (let k = 0; k < NC[safe0]; k++) zone[NB[safe0 * 8 + k]] = 1;
-  let best = null;
 
   function setMine(i, v) {
     if (mine[i] === v) return;
@@ -548,7 +554,7 @@ function* genBoard(R, C, M, safe0, prog) {
 
   // Проход решателя. allow — можно править поле при застревании
   function* run(allow) {
-    const sv = makeSolver(G, adj, M, true, mine);
+    const sv = makeSolver(G, adj, M, mine, W);
     let pert = 0, experts = 0;
     sv.safe(safe0);
     for (;;) {
@@ -580,13 +586,10 @@ function* genBoard(R, C, M, safe0, prog) {
   // Шаг 1: честно решаемое поле
   let cur = null;
   while (cur === null) { fill(); cur = yield* settle(); }
-  prog.cur = cur;
   // Шаг 2: усложнение. Случайная бомбочка переносится на клетку рядом (квадрат 5×5).
   // Перенос остаётся, если поле по-прежнему решается целиком без единой правки,
   // а обязательных экспертных задачек не меньше прежнего
-  let iters = 0;
   while (cur < target && Date.now() - t0 < DIFF.genBudgetMs) {
-    iters++;
     let m;
     do m = rnd(N); while (!mine[m]);
     const rr = ((m / C) | 0) + rnd(5) - 2, cc = m % C + rnd(5) - 2;
@@ -595,10 +598,10 @@ function* genBoard(R, C, M, safe0, prog) {
     if (mine[e] || zone[e]) continue;
     setMine(m, 0); setMine(e, 1);
     const r = yield* run(false);
-    if (r.ok && r.experts >= cur) prog.cur = cur = r.experts;
+    if (r.ok && r.experts >= cur) cur = r.experts;
     else { setMine(e, 0); setMine(m, 1); }
   }
-  return { mine, adj, experts: cur, target };
+  return { mine, adj };
 }
 
 </script>
@@ -631,18 +634,10 @@ document.querySelectorAll("svg.b").forEach(s => s.innerHTML = BETTY);
 $("favicon").href = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><style>[data-s]{display:none}[data-s~=normal]{display:inline}</style>' + BETTY + '</svg>');
 // Иконки нарисованы здесь же, чтобы на iPhone, Android и Windows выглядели одинаково (эмодзи везде разные)
 const ICONS = {
-  pick: '<path d="M20 86 L66 36" stroke="#6e4524" stroke-width="13" stroke-linecap="round"/><path d="M20 86 L66 36" stroke="#b07a45" stroke-width="7" stroke-linecap="round"/>'
-    + '<path d="M32 12 Q84 8 92 68 Q72 30 32 12 Z" fill="#d7dbe0" stroke="#8a9097" stroke-width="3" stroke-linejoin="round"/>'
-    + '<rect x="58" y="28" width="15" height="15" rx="3" transform="rotate(-47 65.5 35.5)" fill="#8a9097"/>',
-  shovel: '<g transform="rotate(38 50 50)"><path d="M36 6 H64 V18 H36 Z" fill="#b07a45" stroke="#6e4524" stroke-width="3" stroke-linejoin="round"/>'
-    + '<rect x="45.5" y="17" width="9" height="40" fill="#b07a45" stroke="#6e4524" stroke-width="2"/>'
-    + '<path d="M31 56 H69 V70 Q69 89 50 95 Q31 89 31 70 Z" fill="#d7dbe0" stroke="#8a9097" stroke-width="3" stroke-linejoin="round"/></g>',
   nose: '<ellipse cx="50" cy="56" rx="45" ry="38" fill="#faf5ec" stroke="#c9b48f" stroke-width="3"/>'
     + '<path d="M50 62 C38 62 27 55 27 44 C27 33 38 28 50 28 C62 28 73 33 73 44 C73 55 62 62 50 62 Z" fill="#161616"/>'
     + '<ellipse cx="42" cy="37" rx="7" ry="3.2" fill="#6a6a6a"/>'
     + '<path d="M50 62 V70 M33 72 Q41 82 50 72 Q59 82 67 72" stroke="#3a2a22" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
-  hole: '<g fill="#a86b3c"><circle cx="20" cy="34" r="5.5"/><circle cx="34" cy="18" r="4.5"/><circle cx="50" cy="28" r="4"/><circle cx="66" cy="14" r="4.5"/><circle cx="81" cy="30" r="5.5"/></g>'
-    + '<ellipse cx="50" cy="72" rx="45" ry="20" fill="#8a5a33"/><ellipse cx="50" cy="68" rx="29" ry="10" fill="#24160d"/>',
   bone: '<g transform="translate(50 50) rotate(-40) scale(1.12) translate(-50 -50)"><g fill="#c9b48f"><rect x="20" y="39" width="60" height="22"/><circle cx="21" cy="39" r="14"/><circle cx="21" cy="61" r="14"/><circle cx="79" cy="39" r="14"/><circle cx="79" cy="61" r="14"/></g>'
     + '<g fill="#f6efe0"><rect x="20" y="42" width="60" height="16"/><circle cx="21" cy="39" r="11"/><circle cx="21" cy="61" r="11"/><circle cx="79" cy="39" r="11"/><circle cx="79" cy="61" r="11"/></g></g>',
   tnt: '<ellipse cx="27" cy="96" rx="11" ry="4.5" fill="#8e1616" stroke="#5a0c0c" stroke-width="2.5"/>'
@@ -672,40 +667,38 @@ const ICONS = {
     + '<circle cx="56" cy="5" r="1.6"/>'
     + '<circle cx="86" cy="5" r="1.4"/>'
     + '</g>',
-  xpaw: '<g fill="#ff4d4d">'
+  paw: '<g fill="#ff4d4d">'
     + '<ellipse cx="19" cy="44" rx="10" ry="13" transform="rotate(-25 19 44)"/>'
     + '<ellipse cx="38" cy="24" rx="10" ry="14" transform="rotate(-8 38 24)"/>'
     + '<ellipse cx="62" cy="24" rx="10" ry="14" transform="rotate(8 62 24)"/>'
     + '<ellipse cx="81" cy="44" rx="10" ry="13" transform="rotate(25 81 44)"/>'
     + '<path d="M50 46C38 46 24 62 22 76C20 90 34 94 50 88C66 94 80 90 78 76C76 62 62 46 50 46Z"/>'
-    + '</g>'
-    + '<path d="M12 88 L88 12" stroke="#000" stroke-width="12" stroke-linecap="round"/>'
-    + '<path d="M12 88 L88 12" stroke="#ff4d4d" stroke-width="6" stroke-linecap="round"/>',
+    + '</g>',
   minus: '<path d="M24 50 H76" stroke="#f6efe0" stroke-width="11" stroke-linecap="round"/>',
   plus: '<path d="M24 50 H76 M50 24 V76" stroke="#f6efe0" stroke-width="11" stroke-linecap="round"/>'
 };
-// Иконка кнопки «Копать»: pick — кирка, shovel — лопата, nose — мордочка Бэтти, hole — ямка с землёй
-const DIG_ICON = "nose";
-const DIG_TEXT = { pick: "Копать", shovel: "Копать", nose: "Носик", hole: "Копать" };
+// Лапка, поставленная зря: та же лапка, перечёркнутая
+ICONS.xpaw = ICONS.paw + '<path d="M12 88 L88 12" stroke="#000" stroke-width="12" stroke-linecap="round"/>'
+  + '<path d="M12 88 L88 12" stroke="#ff4d4d" stroke-width="6" stroke-linecap="round"/>';
 (() => {
   const css = Object.keys(ICONS).map(k => ".ic-" + k + '{background-image:url("data:image/svg+xml,'
     + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' + ICONS[k] + "</svg>") + '")}').join("\n");
   const st = document.createElement("style");
   st.textContent = css;
   document.head.appendChild(st);
-  const k = ICONS[DIG_ICON] ? DIG_ICON : "pick";
-  $("digIc").classList.add("ic-" + k);
-  $("digTx").textContent = DIG_TEXT[k] || "Копать";
 })();
 
 function expr(s, st) { s.classList.remove("press", "lose", "win"); if (st !== "normal") s.classList.add(st); }
 function setFace(st) { document.querySelectorAll("svg.b.live").forEach(s => expr(s, st)); }
 
 // Бэтти моргает сама: каждая мордочка в своём ритме, иногда дважды подряд
+// Моргают только видимые мордочки: в свёрнутой игре и в закрытом окне работы нет.
+// Класс снимается через 220 мс, а следующее моргание не раньше чем через 280 мс, поэтому анимация
+// запускается заново простым добавлением класса, без принудительного пересчёта раскладки страницы
 function blinker(s) {
+  const dlg = s.closest("dialog");
   const once = () => {
-    s.classList.remove("blink");
-    void s.getBoundingClientRect();            // Перезапуск анимации моргания
+    if (document.hidden || (dlg && !dlg.open) || s.classList.contains("blink")) return;
     s.classList.add("blink");
     setTimeout(() => s.classList.remove("blink"), 220);
   };
@@ -762,7 +755,7 @@ function restore() {
   if (k < 0) return false;                     // Размеры или плотность бомбочек в настройках поменялись
   const secs0 = +store.get("secs", 0) || 0;
   $("diff").value = String(k);
-  init();
+  init(true);
   if (g.state === "ready" || typeof g.cells !== "string" || g.cells.length !== R * C) return true;
   for (let i = 0; i < R * C; i++) {
     const v = g.cells.charCodeAt(i) - 65;
@@ -784,7 +777,7 @@ function restore() {
   return true;
 }
 
-function init() {
+function init(restoring) {                       // restoring: поле готовится под восстановление, сохранённую партию не трогать
   genTok++; clearTimeout(genMsgT);             // Отмена генерации прошлой партии, если она ещё идёт
   curK = PRESETS[+$("diff").value] ? +$("diff").value : 0;
   $("diff").value = String(curK);
@@ -800,7 +793,7 @@ function init() {
   setFace("normal"); $("msg").textContent = "";
   zoom = (store.get("zoom", {}))[R + "x" + C] || 1;
   lcd(); fit(true);
-  saveNow();
+  if (!restoring) saveNow();
 }
 
 function hms(s) {                              // Время в виде ЧЧ:ММ:СС, предел 99:59:59
@@ -862,8 +855,8 @@ function nb(i, f) {
 function begin(i) {
   if (flg[i]) return;
   state = "gen";
-  const tok = ++genTok, prog = {};
-  let it = genBoard(R, C, M, i, prog), shown = false;
+  const tok = ++genTok;
+  let it = genBoard(R, C, M, i), shown = false;
   const progMsg = () => { $("msg").textContent = "🐾 Бэтти обнюхивает поле… "; };
   genMsgT = setTimeout(() => { if (tok === genTok) { shown = true; progMsg(); } }, 150);
   const step = () => {
@@ -871,7 +864,7 @@ function begin(i) {
     const t = performance.now();
     let r;
     try { do r = it.next(); while (!r.done && performance.now() - t < 25); }
-    catch (e) { it = genBoard(R, C, M, i, prog); r = { done: false }; }   // Сбой проверки: заново с другой расстановкой
+    catch (e) { it = genBoard(R, C, M, i); r = { done: false }; }   // Сбой проверки: заново с другой расстановкой
     if (!r.done) { if (shown) progMsg(); setTimeout(step, 0); return; }
     clearTimeout(genMsgT); $("msg").textContent = "";
     mine = r.value.mine; adj = r.value.adj;
@@ -888,7 +881,7 @@ function paint(i) {
     e.textContent = adj[i] || "";
   } else {
     e.className = "c" + (flg[i] ? " f" : bone[i] ? " q" : "");
-    if (flg[i]) e.innerHTML = '<i class="paw"></i>'; else if (bone[i]) e.innerHTML = '<i class="ic ic-bone"></i>'; else e.textContent = "";
+    if (flg[i]) e.innerHTML = '<i class="ic ic-paw"></i>'; else if (bone[i]) e.innerHTML = '<i class="ic ic-bone"></i>'; else e.textContent = "";
   }
 }
 
@@ -976,7 +969,7 @@ function showLost(hit) {                       // Все бомбочки и о�
   for (let i = 0; i < R * C; i++) {
     if (mine[i] && !flg[i]) { el[i].className = "c o m"; el[i].innerHTML = '<i class="ic ic-tnt"></i>'; }
     else if (!mine[i] && flg[i]) {             // Лапка стояла зря: видно, что было под ней, и перечёркнутая лапка в углу
-      el[i].className = "c o wf" + (adj[i] ? " n" + adj[i] : "");
+      el[i].className = "c o" + (adj[i] ? " n" + adj[i] : "");
       el[i].innerHTML = (adj[i] || "") + '<i class="ic ic-xpaw"></i>';
     }
   }
@@ -1037,9 +1030,10 @@ function haptic(ms) {
   } catch (e) {}
 }
 // Любая кнопка, список полей и клетка поля. Фаза перехвата — до того, как клик обработает сама кнопка
+// После долгого тапа (lp) браузер присылает ещё и клик: метка уже отозвалась вибрацией, второй раз не нужно
 addEventListener("click", e => {
   const t = e.target;
-  if (t && t.closest && t.closest("button,select,#board .c")) haptic(50);   // Короче ~40 мс мотор многих телефонов не успевает раскрутиться
+  if (!lp && t && t.closest && t.closest("button,select,#board .c")) haptic(50);   // Короче ~40 мс мотор многих телефонов не успевает раскрутиться
 }, true);
 board.addEventListener("contextmenu", e => {
   e.preventDefault();
@@ -1089,7 +1083,7 @@ $("face").onclick = () => askRestart();
 $("zIn").onclick = () => setZoom(STEP);
 $("zOut").onclick = () => setZoom(1 / STEP);
 addEventListener("keydown", e => {
-  if (e.target.matches("input,select")) return;
+  if (e.target.matches("select")) return;
   if (e.key === "+" || e.key === "=") setZoom(STEP);
   else if (e.key === "-" || e.key === "_") setZoom(1 / STEP);
 });
@@ -1154,7 +1148,7 @@ async function checkVersion() {
     const tag = r.ok && (r.headers.get("etag") || r.headers.get("last-modified"));
     if (!tag) return;
     if (verTag === null) { verTag = tag; return; }   // Первая проверка запоминает текущую версию
-    if (tag !== verTag && state !== "gen" && !$("ask").open) { saveNow(); location.reload(); }
+    if (tag !== verTag && state !== "gen" && !$("ask").open && !$("dlg").open) { saveNow(); location.reload(); }   // Окна не обрываются: обновление при следующем возврате
   } catch (e) {}
 }
 checkVersion();
