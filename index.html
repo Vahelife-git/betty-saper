@@ -25,15 +25,20 @@ body{padding:16px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));d
 .hdr h1 small{display:block;margin-top:6px;font-size:.6em;font-weight:700;color:var(--teal);text-shadow:none;letter-spacing:.04em}
 .paws{font-size:32px;opacity:.7;user-select:none}
 
-.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:#1b1b1b;padding:10px 14px;border-radius:12px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;background:#1b1b1b;padding:8px 10px;border-radius:12px}
 .bar label{display:flex;flex-direction:column;font-size:12px;gap:2px;align-items:center}
 select,button{font:32px consolas,monospace;color:var(--ink);background:#1b1b1b;border:1px solid #1b1b1b;border-radius:8px;padding:6px 10px}
 button{cursor:pointer}
+/* Список полей одинаков на iPhone, Android и Windows: системный вид отключён, стрелка своя,
+   текст по центру. Ширину по выбранному полю подгоняет скрипт (fitSel) */
+select{-webkit-appearance:none;appearance:none;cursor:pointer;text-align:center;text-align-last:center;padding:6px 30px;
+  background:#1b1b1b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M0 0h12L6 8z' fill='%23f6efe0'/%3E%3C/svg%3E") no-repeat right 11px center/12px 8px}
 /* Наведение и нажатие — красная рамка, как у выбранной кнопки панели. Наведение только там, где есть мышь:
    на телефоне :hover «залипает» после касания и подсвечивал бы кнопку, которую уже отпустили */
 @media (hover:hover){button:hover{border-color:var(--teal)}}
 button:active{border-color:var(--teal);box-shadow:0 0 6px var(--teal)}
 button:focus-visible,select:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+button:focus:not(:focus-visible),select:focus:not(:focus-visible){outline:none}   /* Без системной рамки фокуса (на iPhone синяя) */
 
 /* Табло: счётчик, морда, таймер */
 .panel{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;background:#1b1b1b;padding:8px 14px;border-radius:12px;width:min(100%,420px)}
@@ -53,9 +58,13 @@ body:not(.touch){width:max-content;min-width:100%}
 body:not(.touch) .pin{align-self:flex-start;position:sticky;left:16px;width:calc(var(--vw,100vw) - 32px)}
 body:not(.touch) .panel{align-self:flex-start;width:min(calc(var(--vw,100vw) - 32px),420px);left:max(16px,calc((var(--vw,100vw) - 420px) / 2));margin-left:max(0px,calc((var(--vw,100vw) - 420px) / 2 - 16px))}
 #board{--s:64px;display:grid;gap:2px;padding:8px;background:#000;border-radius:10px;width:max-content;margin:0 auto;grid-template-columns:repeat(var(--c),var(--s));grid-template-rows:repeat(var(--r),var(--s));user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-x pan-y}
-.c{width:var(--s);height:var(--s);position:relative;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:calc(var(--s)*.62);line-height:1;background:var(--cell);box-shadow:inset 1px 1px 0 #929292;cursor:pointer}
+.c{--e:#929292;width:var(--s);height:var(--s);position:relative;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:calc(var(--s)*.62);line-height:1;background:var(--cell);box-shadow:inset 1px 1px 0 var(--e);cursor:pointer}
 .c:not(.o):not(.f):not(.q)::after{content:attr(data-n);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font:600 calc(var(--s)*.38)/1 sans-serif;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
-.c.o{background:var(--open);box-shadow:inset 1px 1px 0 #555;cursor:default}
+.c.o{--e:#555;background:var(--open);cursor:default}
+/* Светлая линия у каждой клетки сверху и слева; у нижнего ряда и правого столбца ещё и снизу/справа, чтобы поле было в рамке со всех сторон */
+.c[data-e="b"]{box-shadow:inset 1px 1px 0 var(--e),inset 0 -1px 0 var(--e)}
+.c[data-e="r"]{box-shadow:inset 1px 1px 0 var(--e),inset -1px 0 0 var(--e)}
+.c[data-e="br"]{box-shadow:inset 1px 1px 0 var(--e),inset -1px -1px 0 var(--e)}
 .c.boom{background:#ff5a4d}
 .n1{color:#4aa3ff}.n2{color:#4cc35c}.n3{color:#ffd43b}.n4{color:#b58cff}.n5{color:#d9a36a}.n6{color:#3fd0d0}.n7{color:#e6e6e6}.n8{color:#9a9a9a}
 .c.f,.c.q,.c.o.m{font-size:calc(var(--s)*.55)}
@@ -125,6 +134,8 @@ dialog form button.yes{border-color:var(--teal);background:#2c2c2c}
 
 @supports (appearance: base-select){
 	select, select::picker(select){appearance:base-select}
+	select{justify-content:center}
+	select::picker-icon{display:none}          /* Стрелка та же, что на iPhone (фоновая картинка) */
 	select::picker(select){background:#1b1b1b;border:1px solid #1b1b1b;border-radius:8px;padding:4px}
 	option{padding:6px 10px;color:var(--ink)}
 	option:hover, option:checked{background:var(--collar);color:#fff}
@@ -728,8 +739,11 @@ function say(t, st) {
   $("dlgText").textContent = t;
   expr($("dlgFace"), st);
   const d = $("dlg");
-  if (typeof d.showModal === "function") { if (!d.open) d.showModal(); } else alert(t);   // Старые браузеры без <dialog>
+  if (typeof d.showModal === "function") { if (!d.open) { d.showModal(); calm(); } } else alert(t);   // Старые браузеры без <dialog>
 }
+// Окно открывается с фокусом на кнопке (удобно с клавиатуры). На телефоне клавиатуры нет, а Safari
+// рисует вокруг такой кнопки рамку: фокус снимается
+function calm() { if (touchUI.matches && document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
 
 // Сохранение партии: поле, метки, время и итог переживают закрытие вкладки, перезагрузку
 // и выгрузку страницы телефоном. Клетка — одна буква: бомбочка 1, открыта 2, лапка 4, косточка 8
@@ -787,13 +801,31 @@ function init(restoring) {                       // restoring: поле гото
   mine = new Uint8Array(R * C); adj = new Uint8Array(R * C); opn = new Uint8Array(R * C); flg = new Uint8Array(R * C); bone = new Uint8Array(R * C);
   board.style.setProperty("--r", R); board.style.setProperty("--c", C);
   let h = "";
-  for (let i = 0; i < R * C; i++) h += '<div class="c" data-i="' + i + '" data-n="' + (i + 1) + '"></div>';
+  for (let i = 0; i < R * C; i++) {
+    const e = (i >= (R - 1) * C ? "b" : "") + (i % C === C - 1 ? "r" : "");   // Край поля: нижний ряд, правый столбец
+    h += '<div class="c" data-i="' + i + '" data-n="' + (i + 1) + (e ? '" data-e="' + e : "") + '"></div>';
+  }
   board.innerHTML = h;
   el = board.children;
   setFace("normal"); $("msg").textContent = "";
   zoom = (store.get("zoom", {}))[R + "x" + C] || 1;
-  lcd(); fit(true);
+  lcd(); fit(true); fitSel();
   if (!restoring) saveNow();
+}
+
+// Ширина списка полей — по тексту выбранного поля, чтобы блок не был шире надписи
+let selCtx = null;
+function fitSel() {
+  const s = $("diff"), o = s.options[s.selectedIndex];
+  if (!o) return;
+  const cs = getComputedStyle(s);
+  try {
+    selCtx = selCtx || document.createElement("canvas").getContext("2d");
+    selCtx.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+    const w = selCtx.measureText(o.text).width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+      + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+    s.style.width = Math.ceil(w + 2) + "px";
+  } catch (e) { s.style.width = ""; }
 }
 
 function hms(s) {                              // Время в виде ЧЧ:ММ:СС, предел 99:59:59
@@ -1031,9 +1063,11 @@ function haptic(ms) {
 }
 // Любая кнопка, список полей и клетка поля. Фаза перехвата — до того, как клик обработает сама кнопка
 // После долгого тапа (lp) браузер присылает ещё и клик: метка уже отозвалась вибрацией, второй раз не нужно
+// На iPhone «щелчок» переключателя забирает фокус, и выпадающий список полей тут же закрывается:
+// для списка на iPhone отклика нет, на Android он остаётся
 addEventListener("click", e => {
-  const t = e.target;
-  if (!lp && t && t.closest && t.closest("button,select,#board .c")) haptic(50);   // Короче ~40 мс мотор многих телефонов не успевает раскрутиться
+  const t = e.target, hit = !lp && t && t.closest && t.closest("button,select,#board .c");
+  if (hit && !(IOS && hit.tagName === "SELECT")) haptic(50);   // Короче ~40 мс мотор многих телефонов не успевает раскрутиться
 }, true);
 board.addEventListener("contextmenu", e => {
   e.preventDefault();
@@ -1071,12 +1105,13 @@ function askRestart(k) {
   if ($("dlg").open) $("dlg").close();
   $("askText").textContent = q + "\nБэтти забудет это поле.";
   d.returnValue = "";                          // Esc и клик мимо окна — это «Отмена»
-  d.showModal();
+  d.showModal(); calm();
 }
 function finishAsk(yes) {
   if (yes) { $("diff").value = String(pendK); init(); }
   else $("diff").value = String(curK);         // Отмена: в списке остаётся размер текущей партии
   pendK = -1;
+  fitSel();
 }
 $("ask").addEventListener("close", () => finishAsk($("ask").returnValue === "yes"));
 $("face").onclick = () => askRestart();
@@ -1092,6 +1127,7 @@ addEventListener("keydown", e => {
 $("diff").innerHTML = PRESETS.map((p, k) => '<option value="' + k + '">' + p[0] + "×" + p[1] + " / " + p[2] + "</option>").join("");
 $("diff").value = String(Math.max(0, PRESETS.findIndex(p => p[0] === store.get("side", 10))));
 $("diff").onchange = () => {
+  fitSel();
   const k = +$("diff").value;
   if (k === curK) return;
   if (state === "ready") init();                // Ни одного хода ещё не было — терять нечего
@@ -1106,7 +1142,7 @@ document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e =
   if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) d.close();
 }));
 function setVW() { document.documentElement.style.setProperty("--vw", document.documentElement.clientWidth + "px"); }   // Ширина окна без полосы прокрутки
-addEventListener("resize", () => { setVW(); fit(false); });
+addEventListener("resize", () => { setVW(); fit(false); fitSel(); });   // fitSel: на узком экране шрифт списка меньше
 setVW();
 if (window.ResizeObserver) new ResizeObserver(setVW).observe(document.documentElement);   // Появление вертикальной полосы прокрутки тоже меняет ширину
 function setTool(t) {
