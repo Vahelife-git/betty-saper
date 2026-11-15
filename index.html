@@ -190,27 +190,32 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
   <form method="dialog"><button value="no" autofocus>Отмена</button><button value="yes" class="yes">Новая игра</button></form>
 </dialog>
 
-<script>
+<script id="gen">
 "use strict";
 // ===== Настройки сложности: менять только здесь =====
-// Сложнее: больше density, expertPer100, expertMax, genBudgetMs.
-// Проще: меньше density, expertPer100, expertMax; expertPer100 = 0 — экспертные задачки не обязательны
-// (останется только «без угадывания»).
-// Глубже задачки: maxNums 6, maxCells 12. Мельче: maxNums 4, maxCells 8 (minNums всегда 3, maxNums не меньше 3)
+// Поле всегда решается логикой без угадывания. После первого хода Бэтти отведённое время ищет
+// самое сложное поле: чем больше времени, тем больше экспертных задачек. Ожидание задают genMinMs/genMaxMs.
+// Глубже задачки: maxNums 6, maxCells 12. Мельче: maxNums 4, maxCells 8 (minNums всегда 3)
 const DIFF = {
-  density: 0.25,       // Доля клеток с бомбочками (0.25 = 25%)
+  density: 0.26,       // Доля клеток с бомбочками (0.26 = 26%). Больше 0.28 не бывает: см. SAFE ниже
   minNums: 3,          // Экспертная задачка: сколько чисел минимум надо сопоставить одновременно
-  maxNums: 4,          // Больше чисел в одной задачке не бывает — решается в уме, без бумаги
-  maxCells: 8,         // Больше закрытых клеток в одной задачке не бывает — тоже ради решения в уме
-  expertPer100: 2,     // Цель: обязательных экспертных задачек на каждые 100 клеток поля…
-  expertMax: 20,       // …но не больше стольких на одно поле
-  genBudgetMs: 20000,  // Сколько максимум (мс) Бэтти усложняет поле; потом берётся лучшее найденное
+  maxNums: 5,          // Больше чисел в одной задачке не бывает — самые глубокие могут потребовать бумагу
+  maxCells: 10,        // Больше закрытых клеток в одной задачке не бывает
+  genMinMs: 8000,      // Сколько (мс) Бэтти ищет сложное поле 10×10…
+  genMaxMs: 30000,     // …и сколько — поле genFullSide×genFullSide и больше (это же предел ожидания)
+  genFullSide: 30,     // С какого размера поля время поиска максимальное; между 10 и им — плавно
+  threads: 4,          // Сколько фоновых потоков ищут поле одновременно (не больше ядер устройства)
   countCells: 0,       // 0 — задачек «посчитай оставшиеся бомбочки» нет: всё решается видимыми числами.
                        // Больше 0 — такие задачки разрешены, когда закрытых клеток не больше этого числа
                        // (игроку тогда надо отметить лапками все остальные бомбочки, чтобы счётчик был точным)
   addBias: 0.75,       // При правке поля: как часто бомбочка добавляется, а не убирается (0…1)
   tries: 24            // Сколько вариантов правки пробовать в месте застревания
 };
+// Безопасные пределы: при значениях за ними поле строится минутами или не строится вовсе (проверено замерами).
+// Значения из DIFF, вышедшие за предел, прижимаются к нему
+const SAFE = { density: [0.05, 0.28], minNums: [3, 6], maxNums: [3, 6], maxCells: [6, 12], countCells: [0, 16], tries: [1, 64] };
+for (const k in SAFE) DIFF[k] = Math.min(SAFE[k][1], Math.max(SAFE[k][0], +DIFF[k] || SAFE[k][0]));
+if (DIFF.maxNums < DIFF.minNums) DIFF.maxNums = DIFF.minNums;
 
 // Случайные числа из криптографического генератора: каждая партия своя и не повторяется
 const rnd = (() => {
@@ -500,14 +505,16 @@ function makeSolver(G, adj, M, mine, W) {
   return Object.assign(o, { safe, touch, simpleAll, pairs, subsets, clearSD, count, probe });
 }
 
-// Генератор поля без угадывания с обязательными экспертными задачками.
-// Расстановка проверяется решателем; если он застрял, бомбочки возле места застревания
-// перекладываются, и проверка повторяется. Поле выдаётся, только когда решатель прошёл его
-// целиком с первого хода без единой правки и встретил нужное число экспертных задачек.
-// Функция-генератор отдаёт управление (yield), чтобы страница не замирала на больших полях
-function* genBoard(R, C, M, safe0) {
-  const G = makeGrid(R, C), { N, NB, NC } = G, t0 = Date.now();
-  const target = Math.min(DIFF.expertMax, Math.ceil(N * DIFF.expertPer100 / 100));
+// Генератор поля без угадывания с экспертными задачками.
+// Шаг 1 (start): расстановка проверяется решателем; если он застрял, бомбочки возле места застревания
+// перекладываются, и проверка повторяется. Поле принимается, только когда решатель прошёл его
+// целиком с первого хода без единой правки.
+// Шаг 2 (improve): до срока бомбочки по одной переносятся; перенос остаётся, если поле по-прежнему
+// решается целиком, а экспертных задачек (cur) не меньше прежнего.
+// Шаги — функции-генераторы: отдают управление (yield), чтобы страница не замирала на больших полях.
+// Один и тот же код работает и в основном потоке, и в фоновых
+function makeGen(R, C, M, safe0) {
+  const G = makeGrid(R, C), { N, NB, NC } = G;
   const mine = new Uint8Array(N), adj = new Uint8Array(N), zone = new Uint8Array(N), W = makeWork(N);
   zone[safe0] = 1;                             // Первый ход: клетка и её соседи всегда пустые
   if (M <= N - 9) for (let k = 0; k < NC[safe0]; k++) zone[NB[safe0 * 8 + k]] = 1;
@@ -594,25 +601,48 @@ function* genBoard(R, C, M, safe0) {
     return null;
   }
 
+  const g = { mine, adj, zone, cur: -1 };
   // Шаг 1: честно решаемое поле
-  let cur = null;
-  while (cur === null) { fill(); cur = yield* settle(); }
-  // Шаг 2: усложнение. Случайная бомбочка переносится на клетку рядом (квадрат 5×5).
-  // Перенос остаётся, если поле по-прежнему решается целиком без единой правки,
-  // а обязательных экспертных задачек не меньше прежнего
-  while (cur < target && Date.now() - t0 < DIFF.genBudgetMs) {
-    let m;
-    do m = rnd(N); while (!mine[m]);
-    const rr = ((m / C) | 0) + rnd(5) - 2, cc = m % C + rnd(5) - 2;
-    if (rr < 0 || rr >= R || cc < 0 || cc >= C) continue;
-    const e = rr * C + cc;
-    if (mine[e] || zone[e]) continue;
-    setMine(m, 0); setMine(e, 1);
-    const r = yield* run(false);
-    if (r.ok && r.experts >= cur) cur = r.experts;
-    else { setMine(e, 0); setMine(m, 1); }
-  }
-  return { mine, adj };
+  g.start = function* () {
+    let c = null;
+    while (c === null) { fill(); c = yield* settle(); }
+    g.cur = c;
+  };
+  // Шаг 2: усложнение до срока until (Date.now(), мс). Случайная бомбочка переносится на клетку рядом (квадрат 5×5)
+  g.improve = function* (until) {
+    while (Date.now() < until) {
+      let m;
+      do m = rnd(N); while (!mine[m]);
+      const rr = ((m / C) | 0) + rnd(5) - 2, cc = m % C + rnd(5) - 2;
+      if (rr < 0 || rr >= R || cc < 0 || cc >= C) continue;
+      const e = rr * C + cc;
+      if (mine[e] || zone[e]) continue;
+      setMine(m, 0); setMine(e, 1);
+      const r = yield* run(false);
+      if (r.ok && r.experts >= g.cur) g.cur = r.experts;
+      else { setMine(e, 0); setMine(m, 1); }
+    }
+  };
+  // Взять готовую расстановку (лучшее поле другого потока); cur — её число экспертных задачек
+  g.load = (arr, cur) => { for (let i = 0; i < N; i++) setMine(i, arr[i] ? 1 : 0); g.cur = cur; };
+  // Контроль: решается ли поле целиком без правок. Возвращает число экспертных задачек или -1
+  g.check = function* () { const r = yield* run(false); return r.ok ? r.experts : -1; };
+  return g;
+}
+
+// Фоновый поток: команды start (шаг 1) и improve (шаг 2 до срока, при необходимости с чужим полем).
+// В ответ — текущее поле и число его экспертных задачек
+if (typeof window === "undefined" && typeof postMessage === "function") {
+  let g = null;
+  const drive = it => { while (!it.next().done); };
+  onmessage = e => {
+    const d = e.data;
+    try {
+      if (d.cmd === "start") { g = makeGen(d.R, d.C, d.M, d.safe0); drive(g.start()); }
+      else { if (d.mine) g.load(d.mine, d.cur); drive(g.improve(d.until)); }
+      postMessage({ mine: g.mine, cur: g.cur });
+    } catch (err) { postMessage({ err: String(err && err.message || err), start: d.cmd === "start" }); }
+  };
 }
 
 </script>
@@ -792,7 +822,7 @@ function restore() {
 }
 
 function init(restoring) {                       // restoring: поле готовится под восстановление, сохранённую партию не трогать
-  genTok++; clearTimeout(genMsgT);             // Отмена генерации прошлой партии, если она ещё идёт
+  genTok++; clearTimeout(genMsgT); genStop(); genStop = () => {};   // Отмена генерации прошлой партии, если она ещё идёт
   curK = PRESETS[+$("diff").value] ? +$("diff").value : 0;
   $("diff").value = String(curK);
   [R, C, M] = PRESETS[curK];
@@ -883,27 +913,123 @@ function nb(i, f) {
 }
 
 // Первый ход: поле строится под него так, чтобы дальше всё решалось логикой
-// и встречались экспертные задачки. Поле считается частями, страница при этом не замирает
+// и встречались экспертные задачки. Бэтти ищет самое сложное поле до срока (зависит от размера поля)
+function budgetFor(side) {
+  const f = clamp((side - 10) / Math.max(1, DIFF.genFullSide - 10), 0, 1);
+  return Math.round(DIFF.genMinMs + (DIFF.genMaxMs - DIFF.genMinMs) * f);
+}
+let genStop = () => {};                          // Остановить идущую генерацию (новая партия)
 function begin(i) {
   if (flg[i]) return;
   state = "gen";
-  const tok = ++genTok;
-  let it = genBoard(R, C, M, i), shown = false;
-  const progMsg = () => { $("msg").textContent = "🐾 Бэтти обнюхивает поле… "; };
-  genMsgT = setTimeout(() => { if (tok === genTok) { shown = true; progMsg(); } }, 150);
-  const step = () => {
-    if (tok !== genTok) return;                // Партию уже перезапустили
-    const t = performance.now();
-    let r;
-    try { do r = it.next(); while (!r.done && performance.now() - t < 25); }
-    catch (e) { it = genBoard(R, C, M, i); r = { done: false }; }   // Сбой проверки: заново с другой расстановкой
-    if (!r.done) { if (shown) progMsg(); setTimeout(step, 0); return; }
+  const tok = ++genTok, deadline = Date.now() + budgetFor(Math.max(R, C));
+  genMsgT = setTimeout(() => { if (tok === genTok) $("msg").textContent = "🐾 Бэтти обнюхивает поле… "; }, 150);
+  const finish = b => {
+    if (tok !== genTok) return;
+    genStop = () => {};
     clearTimeout(genMsgT); $("msg").textContent = "";
-    mine = r.value.mine; adj = r.value.adj;
+    mine = b.mine; adj = b.adj;
     start();
     reveal(i);
   };
+  genWorkers(i, deadline, tok, finish, () => genMain(i, deadline, tok, finish));
+}
+
+// Запасной путь: всё в основном потоке, частями по 25 мс
+function genMain(s0, deadline, tok, finish) {
+  let g = makeGen(R, C, M, s0), it = g.start(), phase = 0, stop = false;
+  genStop = () => { stop = true; };
+  const step = () => {
+    if (stop || tok !== genTok) return;
+    const t = performance.now();
+    try {
+      for (;;) {
+        if (it.next().done) {
+          if (phase) { genInfo = { mode: "main", cur: g.cur }; return finish(g); }
+          phase = 1; it = g.improve(deadline);
+        }
+        if (performance.now() - t >= 25) break;
+      }
+    } catch (e) { g = makeGen(R, C, M, s0); it = g.start(); phase = 0; }   // Сбой проверки: заново с другой расстановкой
+    setTimeout(step, 0);
+  };
   step();
+}
+
+// Основной путь: несколько фоновых потоков ищут поле одновременно, каждый своим путём.
+// Раз в GEN_SLICE мс отстающие потоки получают лучшее найденное поле и продолжают с него.
+// К сроку берётся лучшее поле; основной поток ещё раз проверяет его решателем.
+// Потоки не запустились или все упали — запасной путь (fallback)
+const GEN_SLICE = 1500, GEN_GRACE = 1500;
+let genURL = null, genInfo = null;
+function genWorkers(s0, deadline, tok, finish, fallback) {
+  const ws = [];
+  try {
+    if (typeof Worker !== "function" || typeof Blob !== "function" || !window.URL || !URL.createObjectURL) throw 0;
+    genURL = genURL || URL.createObjectURL(new Blob([$("gen").textContent], { type: "text/javascript" }));
+    const n = clamp(navigator.hardwareConcurrency || 4, 2, Math.max(1, DIFF.threads | 0));
+    for (let k = 0; k < n; k++) ws.push(new Worker(genURL));
+  } catch (e) { ws.forEach(w => w.terminate()); return fallback(); }
+  const S = ws.map(() => ({ busy: 0, cur: -1, dead: false, fails: 0 })), sR = R, sC = C, sM = M;
+  let best = null, over = false, timer = 0;
+  const kill = () => { over = true; clearTimeout(timer); ws.forEach(w => { try { w.terminate(); } catch (e) {} }); };
+  genStop = kill;
+  const send = (k, msg) => { S[k].busy++; ws[k].postMessage(msg); };
+  const startMsg = { cmd: "start", R: sR, C: sC, M: sM, safe0: s0 };
+  ws.forEach((w, k) => {
+    w.onmessage = e => {
+      if (over) return;
+      const d = e.data, s = S[k];
+      s.busy = Math.max(0, s.busy - 1);
+      if (d.err) {                               // Сбой в потоке: шаг 1 повторяется, после трёх сбоев поток не используется
+        s.cur = -1;
+        if (d.start) { if (++s.fails > 3) { s.dead = true; w.terminate(); } else send(k, startMsg); }
+        return tick();
+      }
+      s.cur = d.cur;
+      if (!best || d.cur > best.cur) best = { mine: d.mine, cur: d.cur };
+      tick();
+    };
+    w.onerror = e => { if (e && e.preventDefault) e.preventDefault(); S[k].dead = true; S[k].busy = 0; try { w.terminate(); } catch (x) {} tick(); };
+    send(k, startMsg);
+  });
+  function tick() {
+    clearTimeout(timer);
+    if (over) return;
+    if (tok !== genTok) return kill();
+    const now = Date.now();
+    if (!best && S.every(s => s.dead)) { kill(); return fallback(); }
+    if (best) {
+      if (now >= deadline) {
+        if (S.every(s => s.dead || !s.busy) || now >= deadline + GEN_GRACE) return done();
+      } else {
+        const until = Math.min(now + GEN_SLICE, deadline);
+        S.forEach((s, k) => {
+          if (s.dead || s.busy) return;
+          send(k, s.cur < best.cur ? { cmd: "improve", until, mine: best.mine, cur: best.cur } : { cmd: "improve", until });
+        });
+      }
+    }
+    timer = setTimeout(tick, 100);
+  }
+  function done() {
+    kill();
+    let ok = false, g = null;
+    try {                                      // Контроль в основном потоке: число бомбочек, пустой старт, решаемость
+      g = makeGen(sR, sC, sM, s0);
+      let cnt = 0, clean = true;
+      for (let i = 0; i < best.mine.length; i++) { cnt += best.mine[i] ? 1 : 0; if (best.mine[i] && g.zone[i]) clean = false; }
+      if (best.mine.length === sR * sC && cnt === sM && clean) {
+        g.load(best.mine, best.cur);
+        const it = g.check(); let r; do r = it.next(); while (!r.done);
+        ok = r.value >= 0;
+      }
+    } catch (e) { ok = false; }
+    if (!ok) return fallback();
+    genInfo = { mode: "workers", threads: ws.length, cur: best.cur };
+    finish(g);
+  }
+  tick();
 }
 
 function paint(i) {
