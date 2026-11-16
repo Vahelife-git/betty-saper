@@ -193,17 +193,24 @@ h2 {color: #f7de48; font-size: clamp(18px, 4vw, 36px); font-style: italic;}
 <script id="gen">
 "use strict";
 // ===== Настройки сложности: менять только здесь =====
-// Поле всегда решается логикой без угадывания. После первого хода Бэтти отведённое время ищет
-// самое сложное поле: чем больше времени, тем больше экспертных задачек. Ожидание задают genMinMs/genMaxMs.
-// Глубже задачки: maxNums 6, maxCells 12. Мельче: maxNums 4, maxCells 8 (minNums всегда 3)
+// Поле всегда решается логикой без угадывания. После первого хода Бэтти отведённое время ищет самое глубокое поле:
+// сначала как можно больше задачек на maxNums чисел, при равенстве — на одно число меньше и так далее до 3.
+// Задачки на 3 числа — только дополнение: они не могут вытеснить более глубокие. Ожидание задают genMinMs/genMaxMs.
+// Глубже задачки: maxNums 6, maxCells 12. Мельче: maxNums 4, maxCells 8
 const DIFF = {
   density: 0.26,       // Доля клеток с бомбочками (0.26 = 26%). Больше 0.28 не бывает: см. SAFE ниже
-  minNums: 3,          // Экспертная задачка: сколько чисел минимум надо сопоставить одновременно
+  minNums: 4,          // Экспертная задачка: сколько чисел минимум надо сопоставить одновременно. При построении поля
+                       // (шаг 1) правки в местах застревания стараются создать задачку не меньше этой.
+                       // Задачки от 3 чисел до minNums−1 считаются в оценке поля, но в последнюю очередь
   maxNums: 5,          // Больше чисел в одной задачке не бывает — самые глубокие могут потребовать бумагу
   maxCells: 10,        // Больше закрытых клеток в одной задачке не бывает
-  genMinMs: 8000,      // Сколько (мс) Бэтти ищет сложное поле 10×10…
-  genMaxMs: 30000,     // …и сколько — поле genFullSide×genFullSide и больше. Ожидание чуть дольше: до 1,5 с на ответы потоков и проверку поля
+  genMinMs: 8000,      // Сколько (мс) Бэтти ищет глубокое поле 10×10…
+  genMaxMs: 120000,    // …и сколько — поле genFullSide×genFullSide и больше. Ожидание чуть дольше: до 1,5 с на ответы потоков и проверку поля
   genFullSide: 30,     // С какого размера поля время поиска максимальное; между 10 и им — плавно
+  mustNums: 5,         // Страховка глубины: поле без задачки на столько чисел не отдаётся, поиск идёт дальше…
+  mustExtraMs: 120000, // …но не дольше этого (мс) сверх срока; потом берётся лучшее найденное поле
+  mustFrom: 15,        // Страховка действует на полях от mustFrom×mustFrom…
+  mustTo: 95,          // …до mustTo×mustTo включительно (на 10×10 задачка на 5 чисел обычно не помещается)
   threads: 0,          // Сколько фоновых потоков ищут поле: 0 — по числу ядер, которое сообщает браузер (не больше 16); больше 0 — не больше этого числа
   countCells: 0,       // 0 — задачек «посчитай оставшиеся бомбочки» нет: всё решается видимыми числами.
                        // Больше 0 — такие задачки разрешены, когда закрытых клеток не больше этого числа
@@ -213,9 +220,17 @@ const DIFF = {
 };
 // Безопасные пределы: при значениях за ними поле строится минутами или не строится вовсе (проверено замерами).
 // Значения из DIFF, вышедшие за предел, прижимаются к нему
-const SAFE = { density: [0.05, 0.28], minNums: [3, 6], maxNums: [3, 6], maxCells: [6, 12], countCells: [0, 16], tries: [1, 64] };
+const SAFE = { density: [0.05, 0.28], minNums: [3, 6], maxNums: [3, 6], maxCells: [6, 12], countCells: [0, 16], tries: [1, 64], mustNums: [3, 6] };
 for (const k in SAFE) DIFF[k] = Math.min(SAFE[k][1], Math.max(SAFE[k][0], +DIFF[k] || SAFE[k][0]));
 if (DIFF.maxNums < DIFF.minNums) DIFF.maxNums = DIFF.minNums;
+if (DIFF.mustNums > DIFF.maxNums) DIFF.mustNums = DIFF.maxNums;
+
+// Оценка поля по числу задачек каждой глубины h[k] (k — сколько чисел надо сопоставить): самые глубокие —
+// старшие разряды, по 1000 на разряд (больше 999 задачек одной глубины не считается). Большая оценка — глубже поле:
+// сначала больше задачек на maxNums чисел, при равенстве — на одно число меньше и так далее до 3
+function score(h) { let s = 0; for (let k = DIFF.maxNums; k >= 3; k--) s = s * 1000 + Math.min(h[k], 999); return s; }
+// Сколько задачек на k чисел в оценке s
+function deepCount(s, k) { return k < 3 || k > DIFF.maxNums || s < 0 ? 0 : Math.floor(s / 1000 ** (k - 3)) % 1000; }
 
 // Случайные числа из криптографического генератора: каждая партия своя и не повторяется
 const rnd = (() => {
@@ -510,7 +525,7 @@ function makeSolver(G, adj, M, mine, W) {
 // перекладываются, и проверка повторяется. Поле принимается, только когда решатель прошёл его
 // целиком с первого хода без единой правки.
 // Шаг 2 (improve): до срока бомбочки по одной переносятся; перенос остаётся, если поле по-прежнему
-// решается целиком, а экспертных задачек (cur) не меньше прежнего.
+// решается целиком, а его оценка (cur, см. score) не хуже прежней.
 // Шаги — функции-генераторы: отдают управление (yield), чтобы страница не замирала на больших полях.
 // Один и тот же код работает и в основном потоке, и в фоновых
 function makeGen(R, C, M, safe0) {
@@ -570,23 +585,28 @@ function makeGen(R, C, M, safe0) {
     return true;
   }
 
-  // Проход решателя. allow — можно править поле при застревании
+  // Проход решателя. allow — можно править поле при застревании. score — оценка решённого поля
   function* run(allow) {
     const sv = makeSolver(G, adj, M, mine, W);
-    let pert = 0, experts = 0;
+    const h = [0, 0, 0, 0, 0, 0, 0, 0];        // Задачки по числу чисел: h[k] — сколько ходов потребовали k чисел
+    let pert = 0;
     sv.safe(safe0);
     for (;;) {
       sv.simpleAll();
-      if (sv.opened === N - M) return { ok: true, pert, experts };
+      if (sv.opened === N - M) return { ok: true, pert, score: score(h) };
       let lvl = 0;
       if (sv.pairs()) lvl = 2;
       else {
         for (let k = 3; k <= DIFF.maxNums && !lvl; k++) if (yield* sv.subsets(k, false)) lvl = k;
         if (!lvl) { const c = sv.count(false); if (c) lvl = c === 1 ? 1 : 99; }
       }
-      if (lvl) { if (lvl >= DIFF.minNums) { experts++; yield; } continue; }
+      if (lvl) {
+        if (lvl >= 3 && lvl <= DIFF.maxNums) h[lvl]++;   // Задачка на подсчёт (99) в оценку не входит: при countCells 0 её не бывает
+        if (lvl >= DIFF.minNums) yield;
+        continue;
+      }
       sv.clearSD();
-      if (!allow || pert > 40 + N / 20 || !(yield* perturb(sv))) return { ok: false, pert, experts };
+      if (!allow || pert > 40 + N / 20 || !(yield* perturb(sv))) return { ok: false, pert, score: -1 };
       pert++;
       yield;
     }
@@ -596,7 +616,7 @@ function makeGen(R, C, M, safe0) {
     for (let round = 0; round < 12; round++) {
       const r = yield* run(true);
       if (!r.ok) return null;
-      if (!r.pert) return r.experts;
+      if (!r.pert) return r.score;
     }
     return null;
   }
@@ -619,19 +639,19 @@ function makeGen(R, C, M, safe0) {
       if (mine[e] || zone[e]) continue;
       setMine(m, 0); setMine(e, 1);
       const r = yield* run(false);
-      if (r.ok && r.experts >= g.cur) g.cur = r.experts;
+      if (r.ok && r.score >= g.cur) g.cur = r.score;
       else { setMine(e, 0); setMine(m, 1); }
     }
   };
-  // Взять готовую расстановку (лучшее поле другого потока); cur — её число экспертных задачек
+  // Взять готовую расстановку (лучшее поле другого потока); cur — её оценка
   g.load = (arr, cur) => { for (let i = 0; i < N; i++) setMine(i, arr[i] ? 1 : 0); g.cur = cur; };
-  // Контроль: решается ли поле целиком без правок. Возвращает число экспертных задачек или -1
-  g.check = function* () { const r = yield* run(false); return r.ok ? r.experts : -1; };
+  // Контроль: решается ли поле целиком без правок. Возвращает оценку поля или -1
+  g.check = function* () { const r = yield* run(false); return r.ok ? r.score : -1; };
   return g;
 }
 
 // Фоновый поток: команды start (шаг 1) и improve (шаг 2 до срока, при необходимости с чужим полем).
-// В ответ — текущее поле и число его экспертных задачек
+// В ответ — текущее поле и его оценка
 if (typeof window === "undefined" && typeof postMessage === "function") {
   let g = null;
   const drive = it => { while (!it.next().done); };
@@ -913,10 +933,19 @@ function nb(i, f) {
 }
 
 // Первый ход: поле строится под него так, чтобы дальше всё решалось логикой
-// и встречались экспертные задачки. Бэтти ищет самое сложное поле до срока (зависит от размера поля)
+// и встречались экспертные задачки. Бэтти ищет самое глубокое поле до срока (зависит от размера поля)
 function budgetFor(side) {
   const f = clamp((side - 10) / Math.max(1, DIFF.genFullSide - 10), 0, 1);
   return Math.round(DIFF.genMinMs + (DIFF.genMaxMs - DIFF.genMinMs) * f);
+}
+// Страховка глубины: действует ли на поле этой стороны и не хватает ли полю с оценкой s задачки на mustNums чисел
+const mustHere = side => side >= DIFF.mustFrom && side <= DIFF.mustTo;
+const lacks = s => deepCount(s, DIFF.mustNums) === 0;
+// Сведения о найденном поле (для проверок): путь, оценка и число задачек каждой глубины
+function infoOf(mode, cur, extra) {
+  const deep = {};
+  for (let k = DIFF.maxNums; k >= 3; k--) deep[k] = deepCount(cur, k);
+  return Object.assign({ mode, cur, deep }, extra);
 }
 let genStop = () => {};                          // Остановить идущую генерацию (новая партия)
 function begin(i) {
@@ -940,6 +969,7 @@ function begin(i) {
 // Запасной путь: всё в основном потоке, частями по 25 мс
 function genMain(s0, deadline, tok, finish) {
   let g = makeGen(R, C, M, s0), it = g.start(), phase = 0, stop = false;
+  const hard = deadline + (mustHere(Math.max(R, C)) ? DIFF.mustExtraMs : 0);   // Позже этого поиск не идёт даже без задачки на mustNums чисел
   genStop = () => { stop = true; };
   const step = () => {
     if (stop || tok !== genTok) return;
@@ -947,8 +977,9 @@ function genMain(s0, deadline, tok, finish) {
     try {
       for (;;) {
         if (it.next().done) {
-          if (phase) { genInfo = { mode: "main", cur: g.cur }; return finish(g); }
-          phase = 1; it = g.improve(deadline);
+          if (!phase) { phase = 1; it = g.improve(deadline); }
+          else if (lacks(g.cur) && Date.now() < hard) it = g.improve(Math.min(Date.now() + 1000, hard));   // Страховка: ищем дальше по секунде
+          else { genInfo = infoOf("main", g.cur); return finish(g); }
         }
         if (performance.now() - t >= 25) break;
       }
@@ -1019,10 +1050,12 @@ function genWorkers(s0, deadline, tok, finish, fallback) {
     last = now;
     if (!best && (S.every(s => s.dead) || shown >= wait)) { kill(); return fallback(); }   // Ни одного поля: потоки упали или молчат
     if (best) {
-      if (now >= deadline) {
-        if (S.every(s => s.dead || !s.busy) || now >= deadline + GEN_GRACE) return done();
+      // Страховка глубины: у лучшего поля нет задачки на mustNums чисел — поиск продолжается до mustExtraMs сверх срока
+      const end = mustHere(Math.max(sR, sC)) && lacks(best.cur) ? deadline + DIFF.mustExtraMs : deadline;
+      if (now >= end) {
+        if (S.every(s => s.dead || !s.busy) || now >= end + GEN_GRACE) return done();
       } else {
-        const until = Math.min(now + GEN_SLICE, deadline);
+        const until = Math.min(now + GEN_SLICE, end);
         S.forEach((s, k) => {
           if (s.dead || s.busy) return;
           send(k, s.cur < best.cur ? { cmd: "improve", until, mine: best.mine, cur: best.cur } : { cmd: "improve", until });
@@ -1046,7 +1079,7 @@ function genWorkers(s0, deadline, tok, finish, fallback) {
         g.load(c.mine, c.cur);
         const it = g.check(); let r; do r = it.next(); while (!r.done);
         if (r.value < 0) continue;
-        genInfo = { mode: "workers", threads: ws.length, cur: c.cur };
+        genInfo = infoOf("workers", r.value, { threads: ws.length });   // Оценка — по проверке в основном потоке
         return finish(g);
       } catch (e) { g = null; }                // Сбой проверки: следующий кандидат на чистом генераторе
     }
