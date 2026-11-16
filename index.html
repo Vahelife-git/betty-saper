@@ -202,9 +202,9 @@ const DIFF = {
   maxNums: 5,          // Больше чисел в одной задачке не бывает — самые глубокие могут потребовать бумагу
   maxCells: 10,        // Больше закрытых клеток в одной задачке не бывает
   genMinMs: 8000,      // Сколько (мс) Бэтти ищет сложное поле 10×10…
-  genMaxMs: 30000,     // …и сколько — поле genFullSide×genFullSide и больше (это же предел ожидания)
+  genMaxMs: 30000,     // …и сколько — поле genFullSide×genFullSide и больше. Ожидание чуть дольше: до 1,5 с на ответы потоков и проверку поля
   genFullSide: 30,     // С какого размера поля время поиска максимальное; между 10 и им — плавно
-  threads: 4,          // Сколько фоновых потоков ищут поле одновременно (не больше ядер устройства)
+  threads: 0,          // Сколько фоновых потоков ищут поле: 0 — по числу ядер, которое сообщает браузер (не больше 16); больше 0 — не больше этого числа
   countCells: 0,       // 0 — задачек «посчитай оставшиеся бомбочки» нет: всё решается видимыми числами.
                        // Больше 0 — такие задачки разрешены, когда закрытых клеток не больше этого числа
                        // (игроку тогда надо отметить лапками все остальные бомбочки, чтобы счётчик был точным)
@@ -484,7 +484,7 @@ function makeSolver(G, adj, M, mine, W) {
   }
 
   // Пробный разбор после правки клетки x (ничего не применяет): вокруг x появился
-  // простой ход (1), только экспертный ход на 3…maxNums чисел (2) или хода нет (0).
+  // простой ход (1: одно число, пара или группа меньше minNums), только экспертный ход на minNums…maxNums чисел (2) или хода нет (0).
   // Остальное поле не проверяется: до правки там уже не было ни простых, ни экспертных ходов
   function* probe(x) {
     const cs = [];
@@ -497,7 +497,7 @@ function makeSolver(G, adj, M, mine, W) {
     for (let k = 3; k <= DIFF.maxNums; k++) {
       const out = [];
       yield* subsets(k, true, out, cs);
-      if (out.length) return 2;
+      if (out.length) return k >= DIFF.minNums ? 2 : 1;   // Группа меньше minNums — ход не экспертный
     }
     return 0;
   }
@@ -922,7 +922,7 @@ let genStop = () => {};                          // Остановить иду�
 function begin(i) {
   if (flg[i]) return;
   state = "gen";
-  const tok = ++genTok, deadline = Date.now() + budgetFor(Math.max(R, C));
+  const budget = budgetFor(Math.max(R, C)), tok = ++genTok, deadline = Date.now() + budget;
   genMsgT = setTimeout(() => { if (tok === genTok) $("msg").textContent = "🐾 Бэтти обнюхивает поле… "; }, 150);
   const finish = b => {
     if (tok !== genTok) return;
@@ -932,7 +932,9 @@ function begin(i) {
     start();
     reveal(i);
   };
-  genWorkers(i, deadline, tok, finish, () => genMain(i, deadline, tok, finish));
+  // Запасной путь, начатый после срока (потоки молчали или их поле не прошло проверку), получает полный срок заново:
+  // иначе он успел бы сделать только шаг 1 и поле вышло бы лёгким
+  genWorkers(i, deadline, tok, finish, () => genMain(i, Math.max(deadline, Date.now() + budget), tok, finish));
 }
 
 // Запасной путь: всё в основном потоке, частями по 25 мс
@@ -958,20 +960,30 @@ function genMain(s0, deadline, tok, finish) {
 
 // Основной путь: несколько фоновых потоков ищут поле одновременно, каждый своим путём.
 // Раз в GEN_SLICE мс отстающие потоки получают лучшее найденное поле и продолжают с него.
-// К сроку берётся лучшее поле; основной поток ещё раз проверяет его решателем.
-// Потоки не запустились или все упали — запасной путь (fallback)
-const GEN_SLICE = 1500, GEN_GRACE = 1500;
+// К сроку берётся лучшее поле; основной поток ещё раз проверяет его решателем (не прошло — следующее по сложности).
+// Потоки не запустились, все упали или молчат, ни одно поле не прошло проверку — запасной путь (fallback).
+// GEN_STALL — сколько мс сверх срока ждать первое поле, пока игра на экране; GEN_MAX_THREADS — предел числа потоков
+const GEN_SLICE = 1500, GEN_GRACE = 1500, GEN_STALL = 30000, GEN_MAX_THREADS = 16;
 let genURL = null, genInfo = null;
 function genWorkers(s0, deadline, tok, finish, fallback) {
   const ws = [];
   try {
     if (typeof Worker !== "function" || typeof Blob !== "function" || !window.URL || !URL.createObjectURL) throw 0;
     genURL = genURL || URL.createObjectURL(new Blob([$("gen").textContent], { type: "text/javascript" }));
-    const n = clamp(navigator.hardwareConcurrency || 4, 2, Math.max(1, DIFF.threads | 0));
+    const cores = navigator.hardwareConcurrency || 4, lim = DIFF.threads | 0;   // Safari на iPhone сообщает не больше 4 ядер
+    const n = clamp(lim > 0 ? Math.min(lim, cores) : cores, 1, GEN_MAX_THREADS);
     for (let k = 0; k < n; k++) ws.push(new Worker(genURL));
   } catch (e) { ws.forEach(w => w.terminate()); return fallback(); }
-  const S = ws.map(() => ({ busy: 0, cur: -1, dead: false, fails: 0 })), sR = R, sC = C, sM = M;
-  let best = null, over = false, timer = 0;
+  const S = ws.map(() => ({ busy: 0, cur: -1, mine: null, ok: false, dead: false, fails: 0 })), sR = R, sC = C, sM = M;
+  const zone0 = makeGen(sR, sC, sM, s0).zone;  // Клетка первого хода и её соседи: бомбочек там быть не может
+  const valid = m => {                         // Быстрая проверка поля из потока: размер, число бомбочек, пустой старт
+    if (!m || m.length !== sR * sC) return false;
+    let cnt = 0;
+    for (let i = 0; i < m.length; i++) if (m[i]) { if (zone0[i]) return false; cnt++; }
+    return cnt === sM;
+  };
+  const wait = Math.max(0, deadline - Date.now()) + GEN_STALL;   // Предел ожидания первого поля (время на экране)
+  let best = null, over = false, timer = 0, shown = 0, last = Date.now();
   const kill = () => { over = true; clearTimeout(timer); ws.forEach(w => { try { w.terminate(); } catch (e) {} }); };
   genStop = kill;
   const send = (k, msg) => { S[k].busy++; ws[k].postMessage(msg); };
@@ -981,12 +993,15 @@ function genWorkers(s0, deadline, tok, finish, fallback) {
       if (over) return;
       const d = e.data, s = S[k];
       s.busy = Math.max(0, s.busy - 1);
-      if (d.err) {                               // Сбой в потоке: шаг 1 повторяется, после трёх сбоев поток не используется
-        s.cur = -1;
-        if (d.start) { if (++s.fails > 3) { s.dead = true; w.terminate(); } else send(k, startMsg); }
+      // Сбой в потоке или испорченное поле: такое поле не становится лучшим и не передаётся другим потокам.
+      // Шаг 1 повторяется, после трёх сбоев поток не используется; на шаге 2 поток получит лучшее поле заново
+      if (d.err || !valid(d.mine)) {
+        s.cur = -1; s.mine = null;
+        if (d.err ? d.start : !s.ok) { if (++s.fails > 3) { s.dead = true; w.terminate(); } else send(k, startMsg); }
         return tick();
       }
-      s.cur = d.cur;
+      s.ok = true;
+      s.cur = d.cur; s.mine = d.mine;          // Последнее поле потока — запасное, если лучшее не пройдёт проверку
       if (!best || d.cur > best.cur) best = { mine: d.mine, cur: d.cur };
       tick();
     };
@@ -998,7 +1013,11 @@ function genWorkers(s0, deadline, tok, finish, fallback) {
     if (over) return;
     if (tok !== genTok) return kill();
     const now = Date.now();
-    if (!best && S.every(s => s.dead)) { kill(); return fallback(); }
+    // Время ожидания считается, только пока игра на экране: свёрнутую страницу телефон может заморозить вместе с потоками.
+    // Промежуток длиннее секунды между проверками — это заморозка, а не ожидание
+    if (!document.hidden) shown += Math.min(now - last, 1000);
+    last = now;
+    if (!best && (S.every(s => s.dead) || shown >= wait)) { kill(); return fallback(); }   // Ни одного поля: потоки упали или молчат
     if (best) {
       if (now >= deadline) {
         if (S.every(s => s.dead || !s.busy) || now >= deadline + GEN_GRACE) return done();
@@ -1014,20 +1033,24 @@ function genWorkers(s0, deadline, tok, finish, fallback) {
   }
   function done() {
     kill();
-    let ok = false, g = null;
-    try {                                      // Контроль в основном потоке: число бомбочек, пустой старт, решаемость
-      g = makeGen(sR, sC, sM, s0);
-      let cnt = 0, clean = true;
-      for (let i = 0; i < best.mine.length; i++) { cnt += best.mine[i] ? 1 : 0; if (best.mine[i] && g.zone[i]) clean = false; }
-      if (best.mine.length === sR * sC && cnt === sM && clean) {
-        g.load(best.mine, best.cur);
+    // Кандидаты: лучшее поле, затем последние поля потоков — от сложного к простому, каждое один раз
+    const cand = [best];
+    S.filter(s => s.mine && s.mine !== best.mine).sort((a, b) => b.cur - a.cur).forEach(s => cand.push({ mine: s.mine, cur: s.cur }));
+    let g = null;
+    for (const c of cand) {
+      try {                                    // Контроль в основном потоке: число бомбочек, пустой старт, решаемость
+        g = g || makeGen(sR, sC, sM, s0);
+        let cnt = 0, clean = true;
+        for (let i = 0; i < c.mine.length; i++) { cnt += c.mine[i] ? 1 : 0; if (c.mine[i] && g.zone[i]) clean = false; }
+        if (c.mine.length !== sR * sC || cnt !== sM || !clean) continue;
+        g.load(c.mine, c.cur);
         const it = g.check(); let r; do r = it.next(); while (!r.done);
-        ok = r.value >= 0;
-      }
-    } catch (e) { ok = false; }
-    if (!ok) return fallback();
-    genInfo = { mode: "workers", threads: ws.length, cur: best.cur };
-    finish(g);
+        if (r.value < 0) continue;
+        genInfo = { mode: "workers", threads: ws.length, cur: c.cur };
+        return finish(g);
+      } catch (e) { g = null; }                // Сбой проверки: следующий кандидат на чистом генераторе
+    }
+    fallback();
   }
   tick();
 }
@@ -1047,6 +1070,7 @@ function start() {                             // Отсчёт идёт от у�
   state = "play";
   t0 = Date.now() - secs * 1000;
   clearInterval(timer);
+  if (document.hidden) return;                 // Игра свёрнута (поле достроилось в фоне): отсчёт начнётся при возврате
   timer = setInterval(() => { const v = ((Date.now() - t0) / 1000) | 0; if (v !== secs) { secs = v; lcd(); store.set("secs", secs); } }, 250);
 }
 
@@ -1223,11 +1247,11 @@ function unlockAudio() {                       // Разблокировка з�
 // k — номер нового размера поля; без него — тот же размер
 function askRestart(k) {
   const d = $("ask");
+  if (d.open) return;                          // Окно уже открыто: выбор в нём не подменяется
   pendK = typeof k === "number" ? k : curK;
   const p = PRESETS[pendK];
   const q = pendK === curK ? "Начать новую игру?" : "Начать новую игру на поле " + p[0] + "×" + p[1] + "?";
   if (typeof d.showModal !== "function") { finishAsk(confirm(q)); return; }   // Старые браузеры без <dialog>
-  if (d.open) return;
   if ($("dlg").open) $("dlg").close();
   $("askText").textContent = q + "\nБэтти забудет это поле.";
   d.returnValue = "";                          // Esc и клик мимо окна — это «Отмена»
