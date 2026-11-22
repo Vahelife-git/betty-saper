@@ -843,6 +843,7 @@ function restore() {
 
 function init(restoring) {                       // restoring: поле готовится под восстановление, сохранённую партию не трогать
   genTok++; clearTimeout(genMsgT); genStop(); genStop = () => {};   // Отмена генерации прошлой партии, если она ещё идёт
+  sndStop();                                                         // И недоигранных звуков прошлой партии
   curK = PRESETS[+$("diff").value] ? +$("diff").value : 0;
   $("diff").value = String(curK);
   [R, C, M] = PRESETS[curK];
@@ -1146,13 +1147,28 @@ function tapMark(i, m) { if (canMark(i)) setMark(i, markOf(i) === m ? 0 : m); } 
 function end() { clearInterval(timer); secs = Math.min(359999, ((Date.now() - t0) / 1000) | 0); lcd(); }
 
 // Звуки синтезируются на лету, без файлов
-let ac = null;
+let ac = null, sndNodes = [], sndTok = 0;
 function audio() {
   try {
+    if (ac && ac.state === "closed") ac = null;
     if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (A) ac = new A(); }
-    if (ac && ac.state === "suspended") ac.resume();
+    if (ac && ac.state !== "running") { const p = ac.resume(); if (p && p.catch) p.catch(() => {}); }   // Любая остановка: «suspended», на iPhone ещё и «interrupted»
   } catch (e) { ac = null; }
   return ac;
+}
+// Остановить недоигранные звуки: новая партия или новый звук
+function sndStop() { sndTok++; for (const n of sndNodes) { try { n.stop(); } catch (e) {} } sndNodes = []; }
+// Звук звучит сейчас или никогда. iPhone может приостановить звук (фон, блокировка экрана, звонок, звук другого
+// приложения); заказанный в это время звук прозвучал бы позже, когда звук вернётся, — посреди другой партии.
+// Поэтому: звук работает — играем сразу; нет — пробуем возобновить и играем, только если вышло за SND_WAIT мс
+const SND_WAIT = 300;
+function play(fn) {
+  const a = audio(); if (!a) return;
+  sndStop();
+  if (a.state === "running") return fn(a);
+  const tok = sndTok, t0 = performance.now();
+  const go = () => { if (tok === sndTok && a.state === "running" && performance.now() - t0 <= SND_WAIT) fn(a); };
+  try { const p = a.resume(); if (p && p.then) p.then(go, () => {}); } catch (e) {}
 }
 function chain(nodes) { for (let k = 0; k < nodes.length - 1; k++) nodes[k].connect(nodes[k + 1]); }
 function bark(a, t) {
@@ -1168,16 +1184,19 @@ function bark(a, t) {
   n.buffer = buf; nf.type = "bandpass"; nf.frequency.value = 1600; nf.Q.value = .9;
   ng.gain.setValueAtTime(.22, t); ng.gain.exponentialRampToValueAtTime(.0001, t + .12);
   chain([n, nf, ng, a.destination]); n.start(t);
+  sndNodes.push(o, n);
 }
-function soundWin() { const a = audio(); if (!a) return; const t = a.currentTime + .03; bark(a, t); bark(a, t + .28); }   // «Гав-гав»
-function soundLose() {                                                                                            // Скуление
-  const a = audio(); if (!a) return;
-  const t = a.currentTime + .03, o = a.createOscillator(), g = a.createGain(), l = a.createOscillator(), lg = a.createGain();
-  o.type = "triangle";
-  o.frequency.setValueAtTime(980, t); o.frequency.exponentialRampToValueAtTime(820, t + .3); o.frequency.exponentialRampToValueAtTime(470, t + .85);
-  l.frequency.value = 6.5; lg.gain.value = 28; chain([l, lg, o.frequency]);
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .08); g.gain.setValueAtTime(.35, t + .55); g.gain.exponentialRampToValueAtTime(.0001, t + .9);
-  chain([o, g, a.destination]); o.start(t); l.start(t); o.stop(t + .95); l.stop(t + .95);
+function soundWin() { play(a => { const t = a.currentTime + .03; bark(a, t); bark(a, t + .28); }); }   // «Гав-гав»
+function soundLose() {                                                                                    // Скуление
+  play(a => {
+    const t = a.currentTime + .03, o = a.createOscillator(), g = a.createGain(), l = a.createOscillator(), lg = a.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(980, t); o.frequency.exponentialRampToValueAtTime(820, t + .3); o.frequency.exponentialRampToValueAtTime(470, t + .85);
+    l.frequency.value = 6.5; lg.gain.value = 28; chain([l, lg, o.frequency]);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .08); g.gain.setValueAtTime(.35, t + .55); g.gain.exponentialRampToValueAtTime(.0001, t + .9);
+    chain([o, g, a.destination]); o.start(t); l.start(t); o.stop(t + .95); l.stop(t + .95);
+    sndNodes.push(o, l);
+  });
 }
 
 function showLost(hit) {                       // Все бомбочки и ошибочные лапки на проигранном поле
